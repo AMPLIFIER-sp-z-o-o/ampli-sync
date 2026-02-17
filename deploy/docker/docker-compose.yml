@@ -1,0 +1,31 @@
+services:
+  amplisync:
+    expose:
+      - "80"
+    build:
+      context: .
+      dockerfile: Dockerfile-tomcat11
+    environment:
+      CATALINA_OPTS: >
+        -Xms512m
+        -Xmx16384m
+        -Djava.rmi.server.hostname=127.0.0.1
+      VIRTUAL_HOST: sync-qa.example.com
+      VIRTUAL_PORT: 8080
+      LETSENCRYPT_HOST: sync-qa.example.com
+      LETSENCRYPT_EMAIL: support@example.com
+      WORKING_DIR: "/working-dir/"
+      DBUSER: amper_flow
+      DBPASS: pass
+      DBHOST: 192.168.1.1
+      DBPORT: 5432
+      DBNAME: ampli-sync
+      JWT_SHARED_SECRET: changeme
+      LOG_LEVEL: 1
+    container_name: amper-flow-amplisync-qa
+    restart: unless-stopped
+    volumes:
+      - ./webapps:/usr/local/tomcat/webapps
+      - ./working-dir:/working-dir
+    networks:
+      - default

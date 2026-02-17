@@ -1,0 +1,16 @@
+FROM tomcat:11.0-jdk21-temurin
+
+LABEL stage="production"
+RUN rm -rf /usr/local/tomcat/webapps/*
+COPY conf/server.xml /usr/local/tomcat/conf/server.xml
+COPY conf/context.xml /usr/local/tomcat/conf/context.xml
+
+ENV JAVA_OPTS="\
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=200 \
+  -Dfile.encoding=UTF-8 \
+"
+
+EXPOSE 8080
+
+CMD ["catalina.sh", "run"]

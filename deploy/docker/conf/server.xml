@@ -1,0 +1,10 @@
+<Host name="localhost"
+      appBase="webapps"
+      unpackWARs="true"
+      autoDeploy="true"
+      deployOnStartup="true">
+
+    <!-- Block accidental deployment -->
+    <Valve className="org.apache.catalina.valves.RemoteAddrValve" deny=".*" />
+</Host>
+<Connector port="8080" protocol="org.apache.coyote.http11.Http11NioProtocol" server="hidden" />

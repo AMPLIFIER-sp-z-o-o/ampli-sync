@@ -1,7 +1,0 @@
-{
-  "name": "SqliteSyncDemo",
-  "integrations": {
-    "cordova": {}
-  },
-  "type": "ionic-angular"
-}

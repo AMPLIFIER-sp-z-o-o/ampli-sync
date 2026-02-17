@@ -1,4 +1,3 @@
-#!/bin/bash 
-cd amplisync-ws
-rm -r target
+#!/bin/bash
+cd ampli-sync
 mvn package war:exploded

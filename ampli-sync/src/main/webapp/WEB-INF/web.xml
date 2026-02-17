@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app
+        xmlns="https://jakarta.ee/xml/ns/jakartaee"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                            https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+        version="6.0">
+
+    <display-name>ampli-sync webservice</display-name>
+
+    <!-- ===================== -->
+    <!-- Jersey Servlet -->
+    <!-- ===================== -->
+    <servlet>
+        <servlet-name>ampli-sync-servlet</servlet-name>
+        <servlet-class>org.glassfish.jersey.servlet.ServletContainer</servlet-class>
+
+        <init-param>
+            <param-name>jersey.config.server.provider.packages</param-name>
+            <param-value>com.ampliapps.amplisync</param-value>
+        </init-param>
+
+        <load-on-startup>1</load-on-startup>
+
+        <multipart-config>
+            <!-- 256MB max -->
+            <max-file-size>268435456</max-file-size>
+            <max-request-size>268435456</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>ampli-sync-servlet</servlet-name>
+        <url-pattern>/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- ===================== -->
+    <!-- Authentication Filter -->
+    <!-- ===================== -->
+    <filter>
+        <filter-name>AuthenticationFilter</filter-name>
+        <filter-class>com.ampliapps.amplisync.RestAuthenticationFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>AuthenticationFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- ===================== -->
+    <!-- Environment entries -->
+    <!-- ===================== -->
+    <env-entry>
+        <env-entry-name>working-dir</env-entry-name>
+        <env-entry-type>java.lang.String</env-entry-type>
+        <env-entry-value>/working-dir/</env-entry-value>
+    </env-entry>
+
+</web-app>

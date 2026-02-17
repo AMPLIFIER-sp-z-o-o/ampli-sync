@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <JsonLayout compact="true" eventEol="true" >
+                <KeyValuePair key="subscriberUUID" value="${ctx:subscriberUUID}"/>
+                <KeyValuePair key="deviceUniqueId" value="${ctx:deviceUniqueId}"/>
+                <KeyValuePair key="tableId" value="${ctx:tableId}"/>
+            </JsonLayout>
+        </Console>
+        <Console name="Debugger" target="SYSTEM_OUT">
+            <layout class="org.apache.log4j.PatternLayout">
+                <param name="ConversionPattern" value="%-5p %c{1} - %m%n"/>
+            </layout>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="ALL">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="Debugger" />
+        </Root>
+    </Loggers>
+
+</Configuration>

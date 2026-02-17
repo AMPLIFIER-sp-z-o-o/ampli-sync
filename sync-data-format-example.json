@@ -1,0 +1,47 @@
+{
+  "changes": [
+    {
+      "table": "assets_assetcategory",
+      "inserts": [
+        {
+          "id": "99d726f5-e1c0-4e4d-ae37-2e7a43d72760",
+          "name": "Test category 1768393313658",
+          "slug": "category-from-app-1768393313658",
+          "description": "Created from app at 2026-01-14 12:21:53",
+          "created_at": "2026-01-14 12:21:53",
+          "lft": 1,
+          "rght": 2,
+          "tree_id": 1,
+          "level": 0,
+          "parent_id": "null",
+          "rowid": "null"
+        }
+      ],
+      "updates": [
+        {
+          "id": "4bf7c297-801b-4737-8582-7687a55a4826",
+          "name": "Updated Test category 1768392877989",
+          "slug": "category-from-app-1768392877989",
+          "description": "Created from app at 2026-01-14 12:14:37",
+          "created_at": "2026-01-14 12:14:37.0",
+          "lft": 1,
+          "rght": 2,
+          "tree_id": 1,
+          "level": 0,
+          "parent_id": "null",
+          "rowid": "280986d0-b53a-4296-a17c-f4b7c6a7d75c"
+        }
+      ]
+    }
+  ],
+  "deletes": [
+    {
+      "table": "assets_assetcategory",
+      "rowid": "1f63b36c-4fc7-4be6-bd6e-a0f822fec7cb"
+    },
+    {
+      "table": "assets_assetcategory",
+      "rowid": "ebbbf745-b697-43ce-9a21-138be826990b"
+    }
+  ]
+}

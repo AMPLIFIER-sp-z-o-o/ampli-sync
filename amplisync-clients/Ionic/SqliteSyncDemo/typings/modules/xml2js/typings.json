@@ -1,8 +1,0 @@
-{
-  "resolution": "main",
-  "tree": {
-    "src": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/ddef2004bc26a72452a8ccd50f00741ad955e2ca/xml2js/index.d.ts",
-    "raw": "registry:dt/xml2js#0.0.0+20170310073152",
-    "typings": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/ddef2004bc26a72452a8ccd50f00741ad955e2ca/xml2js/index.d.ts"
-  }
-}
