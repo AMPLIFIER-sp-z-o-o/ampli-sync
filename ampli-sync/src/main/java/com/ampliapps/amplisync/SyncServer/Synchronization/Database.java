@@ -2,9 +2,9 @@ package com.ampliapps.amplisync.SyncServer.Synchronization;
 
 import com.ampliapps.amplisync.Logs;
 import com.ampliapps.amplisync.SQLiteSyncConfig;
-import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
-import java.beans.PropertyVetoException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -16,7 +16,7 @@ public class Database {
     public static String SQLiteSyncVersion = "";
 
     private static Database datasource;
-    private ComboPooledDataSource cpds;
+    private HikariDataSource hikariDataSource;
 
     public Database() {
 
@@ -39,35 +39,22 @@ public class Database {
 
         SQLiteSyncConfig.Load();
 
-        try {
-            cpds = new ComboPooledDataSource();
-            cpds.setIdentityToken("ampli-sync");
-            cpds.setDriverClass(SQLiteSyncConfig.DBDRIVER); //loads the jdbc driver
-            cpds.setJdbcUrl(SQLiteSyncConfig.DBURL);
-            cpds.setUser(SQLiteSyncConfig.DBUSER);
-            cpds.setPassword(SQLiteSyncConfig.DBPASS);
+        HikariConfig config = new HikariConfig();
+        config.setPoolName("ampli-sync");
+        config.setDriverClassName(SQLiteSyncConfig.DBDRIVER);
+        config.setJdbcUrl(SQLiteSyncConfig.DBURL);
+        config.setUsername(SQLiteSyncConfig.DBUSER);
+        config.setPassword(SQLiteSyncConfig.DBPASS);
 
-            // the settings below are optional -- c3p0 can work with defaults
-            cpds.setMaxPoolSize(40);
-            cpds.setAcquireIncrement(2);
-            cpds.setInitialPoolSize(2);
-            cpds.setMinPoolSize(2);
-            cpds.setAcquireRetryAttempts(0);
-            cpds.setAcquireRetryDelay(3000);
-            cpds.setBreakAfterAcquireFailure(false);
-            cpds.setMaxConnectionAge(60);
-            cpds.setMaxIdleTime(30);
-            cpds.setMaxIdleTimeExcessConnections(10);
-            cpds.setIdleConnectionTestPeriod(30); //changed from 15->30
-            cpds.setTestConnectionOnCheckout(false);
-            cpds.setDebugUnreturnedConnectionStackTraces(true);
-            cpds.setAutoCommitOnClose(true);
-            cpds.setMaxStatements(0);
-            cpds.setMaxStatementsPerConnection(20);
+        config.setMaximumPoolSize(40);
+        config.setMinimumIdle(2);
+        config.setMaxLifetime(60000);
+        config.setIdleTimeout(30000);
+        config.setKeepaliveTime(30000);
+        config.setAutoCommit(true);
+        config.setInitializationFailTimeout(-1);
 
-        } catch (PropertyVetoException e){
-            Logs.write(Logs.Level.ERROR,"Database constructor: " + e.getMessage());
-        }
+        hikariDataSource = new HikariDataSource(config);
     }
 
     public static Database getInstance() {
@@ -82,7 +69,7 @@ public class Database {
 
     public Connection GetDBConnection() {
         try {
-            return this.cpds.getConnection();
+            return this.hikariDataSource.getConnection();
         } catch (SQLException e){
             Logs.write(Logs.Level.ERROR, "GetDBConnection() " + e.getMessage());
             Connection conn = null;

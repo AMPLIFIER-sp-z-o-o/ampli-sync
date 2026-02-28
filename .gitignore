@@ -50,3 +50,6 @@ Thumbs.db
 
 working-dir/
 out/
+.claude/worktrees/condescending-newton
+
+.vscode/settings.json

@@ -37,8 +37,6 @@ public class SQLiteSyncConfig {
             System.setProperty("log4j.SQLiteWorkingDir", WORKING_DIR);
             org.apache.logging.log4j.core.LoggerContext ctx = (org.apache.logging.log4j.core.LoggerContext) LogManager.getContext(false);
             ctx.reconfigure();
-            System.setProperty("com.mchange.v2.log.MLog", "com.mchange.v2.log.FallbackMLog");
-            System.setProperty("com.mchange.v2.log.FallbackMLog.DEFAULT_CUTOFF_LEVEL", "WARNING");
 
             if(env.get("KEYCLOAK_CLIENT_ID") != null)
                 DBUSER = env.get("KEYCLOAK_CLIENT_ID");
