@@ -1,0 +1,21 @@
+services:
+  amplisync:
+    build:
+      context: .
+      dockerfile: Dockerfile-tomcat11
+    container_name: ampli-sync-dev
+    ports:
+      - "8080:8080"
+    environment:
+      WORKING_DIR: "/working-dir/"
+      DBUSER: postgres
+      DBPASS: postgres
+      DBHOST: host.docker.internal
+      DBPORT: 5432
+      DBNAME: ampli_sync_test
+      JWT_SHARED_SECRET: changeme
+      LOG_LEVEL: 4
+      PACKAGE_SIZE: 5000
+    volumes:
+      - ./webapps:/usr/local/tomcat/webapps
+      - ./working-dir:/working-dir
