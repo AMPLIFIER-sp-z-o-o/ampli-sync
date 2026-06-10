@@ -1,4 +1,16 @@
 services:
+  postgres:
+    image: postgres:16
+    container_name: ampli-sync-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ampli_sync_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
   amplisync:
     build:
       context: .
@@ -10,7 +22,7 @@ services:
       WORKING_DIR: "/working-dir/"
       DBUSER: postgres
       DBPASS: postgres
-      DBHOST: host.docker.internal
+      DBHOST: postgres
       DBPORT: 5432
       DBNAME: ampli_sync_test
       JWT_SHARED_SECRET: changeme
@@ -19,3 +31,7 @@ services:
     volumes:
       - ./webapps:/usr/local/tomcat/webapps
       - ./working-dir:/working-dir
+    depends_on:
+      - postgres
+volumes:
+  postgres-data:
