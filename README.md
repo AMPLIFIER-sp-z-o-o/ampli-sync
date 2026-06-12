@@ -25,6 +25,14 @@ https://github.com/AMPLIFIER-sp-z-o-o/custom-tomcat
 
 ------------------------------------------------------------------------
 
+## Local Development
+
+For local development setup with Docker, PostgreSQL, Tomcat, and a minimal test database, see:
+
+[deploy-dev/README.md](deploy-dev/README.md)
+
+------------------------------------------------------------------------
+
 # 1. Architectural Principles
 
 ## 1.1 Offline-First by Design
