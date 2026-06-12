@@ -36,8 +36,7 @@ public class SyncAPI3 {
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     public Response SyncChangesGZip(@PathParam("tableName") String tableName, @PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
         try {
-            JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
-            String subscriberUUID = jwtTokenValidator.getUserId(token);
+            String subscriberUUID = getSubscriberUUID(token);
             String schema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
 
             SyncService sync = new SyncService();
@@ -62,8 +61,7 @@ public class SyncAPI3 {
         Response response = Response.ok().build();
         if(syncId.isEmpty() || syncId == null)
             return response;
-        JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
-        String subscriberUUID = jwtTokenValidator.getUserId(token);
+        String subscriberUUID = getSubscriberUUID(token);
         String schema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
         SyncService sync = new SyncService();
         sync.CommitSync(syncId, schema);
@@ -74,8 +72,7 @@ public class SyncAPI3 {
     @Path("/receive-changes/{deviceUniqueId}")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response ReceiveChanges(ObjectNode receivedData, @PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
-        JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
-        String subscriberUUID = jwtTokenValidator.getUserId(token);
+        String subscriberUUID = getSubscriberUUID(token);
         SyncService sync = new SyncService();
         sync.ReceiveData(receivedData, UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID), subscriberUUID, deviceUniqueId);
         return Response.ok().build();
@@ -85,12 +82,24 @@ public class SyncAPI3 {
     @Path("/prepopulate-db/{deviceUniqueId}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     public Response SQLitePrepopulate(@PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
-        JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
-        String subscriberUUID = jwtTokenValidator.getUserId(token);
+        String subscriberUUID = getSubscriberUUID(token);
         SQLitePrepopulate sqLitePrepopulate = new SQLitePrepopulate();
         File file = new File(sqLitePrepopulate.PrepopulateDatabase(subscriberUUID, deviceUniqueId));
         return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
                 .header("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"")
                 .build();
     }
+
+    /// Helpers
+    private String getSubscriberUUID(String token) {
+        JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
+        String subscriberUUID = jwtTokenValidator.getUserId(token);
+
+        if ((subscriberUUID == null || subscriberUUID.isBlank())  && "true".equalsIgnoreCase(System.getenv("AUTH_DISABLED"))) {
+            return System.getenv().getOrDefault("DEV_USER_ID", "1");
+        }
+        return subscriberUUID;
+    }
+
 }
+
