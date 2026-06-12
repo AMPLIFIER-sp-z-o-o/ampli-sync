@@ -38,6 +38,12 @@ public class RestAuthenticationFilter implements Filter {
 
             Logs.write(Logs.Level.DEBUG, "RestAuthenticationFilter -> doFilter Request URI: " + requestURI);
 
+            if("true".equals(System.getenv("AUTH_DISABLE"))){
+                Logs.write(Logs.Level.WARN,"Authentication disabled by env: AUTH_DISABLED=true");
+                chain.doFilter(request, response);
+                return;
+            }
+
             boolean allowed = ALLOWED_PATHS.contains(requestURI);
             Logs.write(Logs.Level.DEBUG, "RestAuthenticationFilter -> doFilter Is path un-secure: " + (allowed ? "Yes" : "No"));
 

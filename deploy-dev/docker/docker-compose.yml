@@ -28,6 +28,8 @@ services:
       JWT_SHARED_SECRET: changeme
       LOG_LEVEL: 4
       PACKAGE_SIZE: 5000
+      AUTH_DISABLED: "true"
+      DEV_USER_ID: "1"
     volumes:
       - ./webapps:/usr/local/tomcat/webapps
       - ./working-dir:/working-dir
