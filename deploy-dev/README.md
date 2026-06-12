@@ -106,7 +106,8 @@ PostgreSQL is exposed on the host at:
   DBPASS=postgres
   AUTH_DISABLED=true
   DEV_USER_ID=1
-````
+
+```
 `AUTH_DISABLED=true` is used only in the local development setup. It disables JWT validation in the authentication filter.
 
 When auth is disabled, `DEV_USER_ID=1` is used as the user id for requests without a JWT. The test database contains this user and maps it to the `tenant_test` schema.
