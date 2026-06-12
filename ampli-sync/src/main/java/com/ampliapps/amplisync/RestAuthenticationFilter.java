@@ -38,7 +38,7 @@ public class RestAuthenticationFilter implements Filter {
 
             Logs.write(Logs.Level.DEBUG, "RestAuthenticationFilter -> doFilter Request URI: " + requestURI);
 
-            if("true".equals(System.getenv("AUTH_DISABLE"))){
+            if("true".equals(System.getenv("AUTH_DISABLED"))){
                 Logs.write(Logs.Level.WARN,"Authentication disabled by env: AUTH_DISABLED=true");
                 chain.doFilter(request, response);
                 return;
