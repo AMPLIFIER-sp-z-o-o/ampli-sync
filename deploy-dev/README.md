@@ -25,37 +25,81 @@ You need:
 
 From the repository root, run:
 
-  `./deploy-dev/build-dev.sh`
+`./deploy-dev/build-dev.sh`
 
-  This script builds the Maven project and copies the generated WAR to:
+This script builds the Maven project and copies the generated WAR to:
 
-  `deploy-dev/docker/webapps/ROOT.war`
+`deploy-dev/docker/webapps/ROOT.war`
 
-  The WAR is deployed as ROOT.war, so the application is available at:
+The WAR is deployed as ROOT.war, so the application is available at:
 
-  `http://localhost:8080/ampli-sync/`
+`http://localhost:8080/ampli-sync/`
 
-  not at:
+not at:
 
-  `http://localhost:8080/ampli_sync_war/ampli-sync/`
+`http://localhost:8080/ampli_sync_war/ampli-sync/`
 
 ### How to start the Docker Setup
 
-  After building the WAR, start the Docker setup:
+After building the WAR, start the Docker setup:
 ```bash
 cd deploy-dev/docker
 docker compose up --build
 ```
 
-  The logs from PostgreSQL and Tomcat will be shown in the terminal.
+The logs from PostgreSQL and Tomcat will be shown in the terminal.
+
+### Remote Debugging
+
+The local Docker setup can also run Tomcat with remote debugging.
+
+First build the WAR:
+
+`./deploy-dev/build-dev.sh`
+
+Then start Docker Compose with the extra debug file that overrides base compose file:
+```bash
+cd deploy-dev/docker
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+```
+This starts the application normally on:
+
+`http://localhost:8080/ampli-sync/`
+
+and exposes the debug port on:
+
+`localhost:5005`
+
+In IntelliJ IDEA, create a new configuration:
+
+`Run -> Edit Configurations -> Add New Configuration -> Remote JVM Debug`
+
+Use:
+
+`Host: localhost`
+
+`Port: 5005`
+
+Start this configuration with Debug, not Run.
+
+You can test the debugger for example by setting a breakpoint in helper method:
+
+`SyncAPI3.getSubscriberUUID`
+
+and then call:
+
+`curl http://localhost:8080/ampli-sync/prepopulate-db/test-device-1`
+
+If IntelliJ stops on breakpoint, remote debugging is working.
+
 
 ### Optional Startup Script
 
-  There is also an optional helper script:
+There is also an optional helper script:
 
-  `./deploy-dev/start-dev.sh`
+`./deploy-dev/start-dev.sh`
 
-  It runs both the WAR build script and then starts Docker Compose.
+It runs both the WAR build script and then starts Docker Compose.
 
 
 ## How It Works
