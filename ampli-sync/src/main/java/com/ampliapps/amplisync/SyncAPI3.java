@@ -82,7 +82,6 @@ public class SyncAPI3 {
     @Path("/prepopulate-db/{deviceUniqueId}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     public Response SQLitePrepopulate(@PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
-        JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
         String subscriberUUID = getSubscriberUUID(token);
         SQLitePrepopulate sqLitePrepopulate = new SQLitePrepopulate();
         File file = new File(sqLitePrepopulate.PrepopulateDatabase(subscriberUUID, deviceUniqueId));
@@ -96,8 +95,8 @@ public class SyncAPI3 {
         JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
         String subscriberUUID = jwtTokenValidator.getUserId(token);
 
-        if ((subscriberUUID == null || subscriberUUID.isBlank())  && "true".equals(System.getenv("AUTH_DISABLED"))) {
-            return System.getenv().get("DEV_USER_ID");
+        if ((subscriberUUID == null || subscriberUUID.isBlank())  && "true".equalsIgnoreCase(System.getenv("AUTH_DISABLED"))) {
+            return System.getenv().getOrDefault("DEV_USER_ID", "1");
         }
         return subscriberUUID;
     }
