@@ -33,7 +33,7 @@ values
 ('Test document 2', 200);
 
 create table if not exists tenant_test.demo_customers (
-                                                          id uuid primary key default uuid_generate_v4(),
+    id uuid primary key default uuid_generate_v4(),
     name text not null,
     email text,
     city text,
@@ -41,7 +41,7 @@ create table if not exists tenant_test.demo_customers (
     );
 
 create table if not exists tenant_test.demo_products (
-                                                         id uuid primary key default uuid_generate_v4(),
+    id uuid primary key default uuid_generate_v4(),
     name text not null,
     sku text not null,
     unit_price numeric not null,
@@ -50,7 +50,7 @@ create table if not exists tenant_test.demo_products (
     );
 
 create table if not exists tenant_test.demo_orders (
-                                                       id uuid primary key default uuid_generate_v4(),
+    id uuid primary key default uuid_generate_v4(),
     customer_id uuid not null,
     order_number text not null,
     status text not null,
@@ -59,7 +59,7 @@ create table if not exists tenant_test.demo_orders (
     );
 
 create table if not exists tenant_test.demo_order_items (
-                                                            id uuid primary key default uuid_generate_v4(),
+    id uuid primary key default uuid_generate_v4(),
     order_id uuid not null,
     product_id uuid not null,
     quantity numeric not null,
