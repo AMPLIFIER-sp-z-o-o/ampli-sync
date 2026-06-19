@@ -69,34 +69,33 @@ create table if not exists tenant_test.demo_order_items (
 
 insert into tenant_test.demo_customers (id, name, email, city)
 values
-    ('11111111-1111-1111-1111-111111111111', 'Acme Retail', 'orders@acme.example', 'Warsaw'),
-    ('22222222-2222-2222-2222-222222222222', 'North Coast Shop', 'hello@northcoast.example', 'Gdansk'),
-    ('33333333-3333-3333-3333-333333333333', 'Green Market', 'contact@greenmarket.example', 'Poznan'),
-    ('44444444-4444-4444-4444-444444444444', 'Metro Office', 'office@metro.example', 'Krakow')
+    ('5e7b16b0-0c2f-4e9d-9f74-2d7a8f4c0b21', 'Acme Retail', 'orders@acme.example', 'Warsaw'),
+    ('0b8e9b8e-0fb5-4f2d-8d4c-3c57e7dc8e47', 'North Coast Shop', 'hello@northcoast.example', 'Gdansk'),
+    ('8fb5f9c7-9929-4f87-8fcb-19f2092f0a5d', 'Green Market', 'contact@greenmarket.example', 'Poznan'),
+    ('ad6510d7-c44f-4cfa-94c3-3f56a32a4c89', 'Metro Office', 'office@metro.example', 'Krakow')
     on conflict (id) do nothing;
 
 insert into tenant_test.demo_products (id, name, sku, unit_price, is_active)
 values
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Wireless Scanner', 'SCN-100', 299.00, true),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Receipt Printer', 'PRN-200', 449.00, true),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Barcode Labels', 'LBL-300', 39.00, true),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'Cash Drawer', 'DRW-400', 189.00, true),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Tablet Stand', 'STD-500', 129.00, true)
+    ('1c94a79e-913f-4c8a-a694-85a99fcae4a1', 'Wireless Scanner', 'SCN-100', 299.00, true),
+    ('d7a3a28a-f8b1-41f0-9eaa-2cdd19fbd678', 'Receipt Printer', 'PRN-200', 449.00, true),
+    ('a2dd5c4f-19cb-4dfc-b902-4e463cfe5f60', 'Barcode Labels', 'LBL-300', 39.00, true),
+    ('77c8a552-4461-486d-a6dc-3e47ae00c1c5', 'Cash Drawer', 'DRW-400', 189.00, true),
+    ('b3da1d9d-0933-47fd-b172-4277ccde1a98', 'Tablet Stand', 'STD-500', 129.00, true)
     on conflict (id) do nothing;
 
 insert into tenant_test.demo_orders (id, customer_id, order_number, status, total_amount)
 values
-    ('55555555-5555-5555-5555-555555555555', '11111111-1111-1111-1111-111111111111', 'ORD-1001', 'NEW', 748.00),
-    ('66666666-6666-6666-6666-666666666666', '22222222-2222-2222-2222-222222222222', 'ORD-1002', 'PAID', 78.00),
-    ('77777777-7777-7777-7777-777777777777', '33333333-3333-3333-3333-333333333333', 'ORD-1003', 'DRAFT', 318.00)
+    ('79574eb8-44c3-4733-9a85-71bfe2c60271', '5e7b16b0-0c2f-4e9d-9f74-2d7a8f4c0b21', 'ORD-1001', 'NEW', 748.00),
+    ('06498ebd-0282-471f-9e1f-97de3d6bdf29', '0b8e9b8e-0fb5-4f2d-8d4c-3c57e7dc8e47', 'ORD-1002', 'PAID', 78.00),
+    ('586fb265-f426-49eb-8552-256f54de61ef', '8fb5f9c7-9929-4f87-8fcb-19f2092f0a5d', 'ORD-1003', 'DRAFT', 318.00)
     on conflict (id) do nothing;
 
 insert into tenant_test.demo_order_items (id, order_id, product_id, quantity, unit_price)
 values
-    ('88888888-8888-8888-8888-888888888888', '55555555-5555-5555-5555-555555555555', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 1, 299.00),
-    ('99999999-9999-9999-9999-999999999999', '55555555-5555-5555-5555-555555555555', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 1, 449.00),
-    ('10101010-1010-1010-1010-101010101010', '66666666-6666-6666-6666-666666666666', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 2, 39.00),
-    ('12121212-1212-1212-1212-121212121212', '77777777-7777-7777-7777-777777777777', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 1, 189.00),
-    ('13131313-1313-1313-1313-131313131313', '77777777-7777-7777-7777-777777777777', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 1, 129.00)
+    ('c54d82ca-2f87-4a32-bc99-e4679ee090e3', '79574eb8-44c3-4733-9a85-71bfe2c60271', '1c94a79e-913f-4c8a-a694-85a99fcae4a1', 1, 299.00),
+    ('06fd158b-7224-4d71-9a24-8b8fc6816b41', '79574eb8-44c3-4733-9a85-71bfe2c60271', 'd7a3a28a-f8b1-41f0-9eaa-2cdd19fbd678', 1, 449.00),
+    ('e0a3fb7d-af35-4c7c-a7f2-c23017c19a7d', '06498ebd-0282-471f-9e1f-97de3d6bdf29', 'a2dd5c4f-19cb-4dfc-b902-4e463cfe5f60', 2, 39.00),
+    ('a85726ea-90db-4fe7-9b85-00bbd2779e81', '586fb265-f426-49eb-8552-256f54de61ef', '77c8a552-4461-486d-a6dc-3e47ae00c1c5', 1, 189.00),
+    ('fbd9601d-1b5f-4abf-9926-a6b02ad8ea5a', '586fb265-f426-49eb-8552-256f54de61ef', 'b3da1d9d-0933-47fd-b172-4277ccde1a98', 1, 129.00)
     on conflict (id) do nothing;
-
