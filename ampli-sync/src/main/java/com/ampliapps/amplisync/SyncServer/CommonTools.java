@@ -253,6 +253,7 @@ public class CommonTools {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             this.ImportSQL(queries);
+            DatabaseTableGuavaCacheUtil.clearCache();
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "GenerateAndExecuteSchemaChanges() " + e.getMessage());
         }
@@ -384,10 +385,14 @@ public class CommonTools {
     }
 
     public void InitSync(String schema){
-        // this is placeholder
-        // you should initialize here every table you want synchronize
+        // you should initialize here every table you want to synchronize
         AddTableToSynchronization(schema, "document_headers");
+        AddTableToSynchronization(schema, "demo_customers");
+        AddTableToSynchronization(schema, "demo_products");
+        AddTableToSynchronization(schema, "demo_orders");
+        AddTableToSynchronization(schema, "demo_order_items");
     }
+
 
     public void AddFileToZip(File zipFile, File fileToAdd) {
         try {
