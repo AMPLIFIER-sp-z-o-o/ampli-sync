@@ -253,6 +253,7 @@ public class CommonTools {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             this.ImportSQL(queries);
+            DatabaseTableGuavaCacheUtil.clearCache();
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "GenerateAndExecuteSchemaChanges() " + e.getMessage());
         }
