@@ -385,6 +385,7 @@ public class CommonTools {
     }
 
     public void InitSync(String schema){
+        // you should initialize here every table you want to synchronize
         AddTableToSynchronization(schema, "document_headers");
         AddTableToSynchronization(schema, "demo_customers");
         AddTableToSynchronization(schema, "demo_products");
