@@ -39,4 +39,18 @@ Idea: follow the same sync flow as the React Native example, but in a simpler fo
 - `SqliteDatabase` handles local SQLite access.
 - Push payload builder - work in progress
 
+## Test - Manual check
 
+With the local Docker backend running, I run `DevClientRunner`.
+
+Output:
+
+```text
+API[bb924e2] OK! Database connected!
+demo_customers exists: true
+Demo customers:
+0b8e9b8e-0fb5-4f2d-8d4c-3c57e7dc8e47 | North Coast Shop | hello@northcoast.example | Gdansk
+5e7b16b0-0c2f-4e9d-9f74-2d7a8f4c0b21 | Acme Retail | orders@acme.example | Warsaw
+8fb5f9c7-9929-4f87-8fcb-19f2092f0a5d | Green Market | contact@greenmarket.example | Poznan
+ad6510d7-c44f-4cfa-94c3-3f56a32a4c89 | Metro Office | office@metro.example | Krakow
+```
