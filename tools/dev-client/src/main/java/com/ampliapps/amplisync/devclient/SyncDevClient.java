@@ -5,6 +5,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class SyncDevClient {
     private static final String DEV_AUTH_HEADER = "Bearer dev-local-token";
@@ -51,6 +53,37 @@ public class SyncDevClient {
         return syncBaseUrl.endsWith("/") ? syncBaseUrl : syncBaseUrl + "/";
     }
 
+    public Path downloadPrepopulatedDatabaseArchive(String deviceId, Path outputDirectory) {
+        if (deviceId == null  || deviceId.isBlank()) {
+            throw new IllegalArgumentException("deviceId can't be empty");
+        }
+
+        try {
+            Files.createDirectories(outputDirectory);
+
+            Path archivePath = outputDirectory.resolve("database.zip");
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(syncBaseUrl + "prepopulate-db/" + deviceId))
+                    .header("Authorization", DEV_AUTH_HEADER)
+                    .GET()
+                    .build();
+
+            HttpResponse<Path> response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(archivePath));
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Prepopulate database failed with status: " + response.statusCode());
+            }
+
+            return archivePath;
+        } catch (IOException e) {
+            throw new IllegalStateException("Prepopulate database request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Prepopulate database request was interrupted", e);
+
+        }
+    }
     /*
      - call backend health endpoint
      - download, unpack sqlite database from prepopulate-db
