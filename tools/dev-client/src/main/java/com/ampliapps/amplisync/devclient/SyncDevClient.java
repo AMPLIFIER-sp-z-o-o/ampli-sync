@@ -7,6 +7,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class SyncDevClient {
     private static final String DEV_AUTH_HEADER = "Bearer dev-local-token";
@@ -54,7 +57,7 @@ public class SyncDevClient {
     }
 
     public Path downloadPrepopulatedDatabaseArchive(String deviceId, Path outputDirectory) {
-        if (deviceId == null  || deviceId.isBlank()) {
+        if (deviceId == null || deviceId.isBlank()) {
             throw new IllegalArgumentException("deviceId can't be empty");
         }
 
@@ -81,9 +84,45 @@ public class SyncDevClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Prepopulate database request was interrupted", e);
-
         }
     }
+    
+    public Path unpackDatabaseArchive(Path archivePath, Path outputDirectory) {
+        try {
+            Files.createDirectories(outputDirectory);
+            unzip(archivePath, outputDirectory);
+
+            Path databasePath = outputDirectory.resolve("amperflow.db");
+
+            if (!Files.exists(databasePath)) {
+                throw new IllegalStateException("Prepopulated database was not found in archive: " + databasePath);
+            }
+
+            return databasePath;
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to unpack prepopulated database archive", e);
+        }
+    }
+
+    private static void unzip(Path archivePath, Path outputDirectory) throws IOException {
+        try (ZipInputStream zipInputStream = new ZipInputStream(Files.newInputStream(archivePath))) {
+            ZipEntry entry;
+
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                Path targetPath = outputDirectory.resolve(entry.getName());
+
+                if (entry.isDirectory()) {
+                    Files.createDirectories(targetPath);
+                } else {
+                    Files.createDirectories(targetPath.getParent());
+                    Files.copy(zipInputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                zipInputStream.closeEntry();
+            }
+        }
+    }
+
     /*
      - call backend health endpoint
      - download, unpack sqlite database from prepopulate-db
