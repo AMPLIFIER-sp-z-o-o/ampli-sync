@@ -6,6 +6,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 public class SqliteDatabase implements AutoCloseable {
     private final Connection connection;
@@ -41,6 +42,22 @@ public class SqliteDatabase implements AutoCloseable {
             throw new IllegalStateException("Failed to check SQLite table: " + tableName, e);
         }
     }
+
+    public void printDemoCustomers() {
+        String sql = "select id, name, email, city from demo_customers";
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                System.out.println(
+                        resultSet.getString("id") + " | " + resultSet.getString("name") + " | " + resultSet.getString("email") + " | " + resultSet.getString("city")
+                );
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to print demo customers", e);
+        }
+    }
+
 
     @Override
     public void close() {

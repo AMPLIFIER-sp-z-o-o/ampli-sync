@@ -14,6 +14,9 @@ public class DevClientRunner {
 
         try (SqliteDatabase database = SqliteDatabase.open(databasePath)) {
             System.out.println("demo_customers exists: " + database.tableExists("demo_customers"));
+            System.out.println("Demo customers:");
+            database.printDemoCustomers();
+
         }
     }
 }
