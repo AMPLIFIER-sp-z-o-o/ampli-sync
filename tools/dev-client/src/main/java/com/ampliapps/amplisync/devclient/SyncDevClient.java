@@ -7,7 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 public class SyncDevClient {
-    private static final String DEV_AUTH_HEADER = "dev-local-token";
+    private static final String DEV_AUTH_HEADER = "Bearer dev-local-token";
 
     private final String syncBaseUrl;
     private final HttpClient httpClient;
