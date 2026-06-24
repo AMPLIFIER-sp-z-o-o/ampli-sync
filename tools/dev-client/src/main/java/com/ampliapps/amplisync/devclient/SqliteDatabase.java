@@ -7,6 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.UUID;
 
 public class SqliteDatabase implements AutoCloseable {
     private final Connection connection;
@@ -58,6 +59,24 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public String insertDemoCustomer(String name, String email, String city) {
+        String id = UUID.randomUUID().toString();
+        String sql = """
+              insert into demo_customers (id, name, email, city)
+              values (?, ?, ?, ?)
+              """;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, id);
+            statement.setString(2, name);
+            statement.setString(3, email);
+            statement.setString(4, city);
+            statement.executeUpdate();
+            return id;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to insert demo customer", e);
+        }
+    }
 
     @Override
     public void close() {
