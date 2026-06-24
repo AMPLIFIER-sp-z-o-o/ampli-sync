@@ -94,6 +94,20 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void deleteDemoCustomer(String customerId) {
+        String sql = """
+              delete from demo_customers
+              where id = ?
+              """;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, customerId);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to delete demo customer", e);
+        }
+    }
+
     @Override
     public void close() {
         try {

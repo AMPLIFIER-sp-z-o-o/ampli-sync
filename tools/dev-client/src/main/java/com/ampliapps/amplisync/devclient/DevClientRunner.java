@@ -28,6 +28,11 @@ public class DevClientRunner {
             System.out.println("Updated demo customer: " + customerId);
             System.out.println("Demo customers after update:");
             database.printDemoCustomers();
+
+            database.deleteDemoCustomer(customerId);
+            System.out.println("Deleted demo customer: " + customerId);
+            System.out.println("Demo customers after delete:");
+            database.printDemoCustomers();
         }
     }
 }
