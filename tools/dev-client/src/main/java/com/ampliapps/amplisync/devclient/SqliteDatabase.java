@@ -59,6 +59,26 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void printNewInserts() {
+        String sql = """
+            select id, name, email, city
+            from demo_customers
+            where rowid is null
+            """;
+
+        try (Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql)){
+                while (resultSet.next()){
+                    System.out.println(
+                            resultSet.getString("id") + " | " + resultSet.getString("name") + " | " + resultSet.getString("email") + " | " + resultSet.getString("city")
+                    );
+                }
+        }catch (SQLException e) {
+                throw new IllegalStateException("Failed to print new inserts with rowid = null");
+        }
+
+    }
+
     public String insertDemoCustomer(String name, String email, String city) {
         String id = UUID.randomUUID().toString();
         String sql = """
