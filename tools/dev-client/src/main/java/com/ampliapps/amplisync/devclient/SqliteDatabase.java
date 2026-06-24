@@ -78,6 +78,22 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void updateDemoCustomerCity(String customerId, String city) {
+        String sql = """
+              update demo_customers
+              set city = ?
+              where id = ?
+              """;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, city);
+            statement.setString(2, customerId);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to update demo customer", e);
+        }
+    }
+
     @Override
     public void close() {
         try {

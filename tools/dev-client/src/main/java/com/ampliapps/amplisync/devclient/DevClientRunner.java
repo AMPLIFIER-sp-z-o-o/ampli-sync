@@ -14,9 +14,20 @@ public class DevClientRunner {
 
         try (SqliteDatabase database = SqliteDatabase.open(databasePath)) {
             System.out.println("demo_customers exists: " + database.tableExists("demo_customers"));
-            System.out.println("Demo customers:");
+            String customerId = database.insertDemoCustomer(
+                    "Dev Client Customer",
+                    "client@gmail.com",
+                    "Warsaw"
+            );
+
+            System.out.println("Inserted demo customer: " + customerId);
+            System.out.println("Demo customers after insert:");
             database.printDemoCustomers();
 
+            database.updateDemoCustomerCity(customerId, "Krakow");
+            System.out.println("Updated demo customer: " + customerId);
+            System.out.println("Demo customers after update:");
+            database.printDemoCustomers();
         }
     }
 }
