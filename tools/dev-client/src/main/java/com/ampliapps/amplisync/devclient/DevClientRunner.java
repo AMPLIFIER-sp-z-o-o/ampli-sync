@@ -27,7 +27,7 @@ public class DevClientRunner {
             PayloadBuilder payloadBuilder = new PayloadBuilder(database);
 
             System.out.println("Insert changes:");
-            for (TableChanges change : payloadBuilder.findInsertChanges()) {
+            for (TableChanges change : payloadBuilder.buildChanges()) {
                 System.out.println(change);
             }
 
@@ -35,6 +35,11 @@ public class DevClientRunner {
             System.out.println("Updated demo customer: " + customerId);
             System.out.println("Demo customers after update:");
             database.printDemoCustomers();
+
+            System.out.println("Changes after update:");
+            for (TableChanges change : payloadBuilder.buildChanges()) {
+                System.out.println(change);
+            }
 
             database.deleteDemoCustomer(customerId);
             System.out.println("Deleted demo customer: " + customerId);

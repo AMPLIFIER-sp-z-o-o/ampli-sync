@@ -12,11 +12,12 @@ public class PayloadBuilder {
         this.database = database;
     }
 
-    public List<TableChanges> findInsertChanges() {
+    public List<TableChanges> buildChanges() {
         List<TableChanges> changes = new ArrayList<>();
 
         for (String tableName : database.findSynchronizedTables()) {
             List<Map<String, Object>> inserts = database.findRowsWithNullRowId(tableName);
+            List<Map<String, Object>> updates = database.findRowsWithMergeUpdate(tableName);
 
             if (!inserts.isEmpty()) {
                 changes.add(new TableChanges(tableName, inserts, Collections.emptyList()));

@@ -84,6 +84,17 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public List<Map<String, Object>> findRowsWithMergeUpdate(String tableName) {
+        String sql = "select * from " + tableName + "where mergeupdate > 0 and rowid is not null";
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            return toRows(resultSet);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find updates for table: " + tableName, e);
+        }
+    }
+
     private static List<Map<String, Object>> toRows(ResultSet resultSet) throws SQLException {
         List<Map<String, Object>> rows = new ArrayList<>();
         ResultSetMetaData metaData = resultSet.getMetaData();
