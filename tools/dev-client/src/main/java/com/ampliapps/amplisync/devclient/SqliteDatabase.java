@@ -84,6 +84,61 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public List<ProcessedSqlStatement> buildUpdateCleanupStatements(String tableName) {
+        String sql = """
+                select rowid, mergeupdate
+                from %s
+                where mergeupdate > 0 and rowid is not null
+                """.formatted(tableName);
+
+        List<ProcessedSqlStatement> statements = new ArrayList<>();
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                statements.add(new ProcessedSqlStatement(
+                        "update " + tableName + " set mergeupdate = 0 where rowid = ? and mergeupdate = ?",
+                        List.of(
+                                resultSet.getString("rowid"),
+                                resultSet.getObject("mergeupdate")
+                        )
+                ));
+            }
+
+            return statements;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to build update cleanup statements for table: " + tableName, e);
+        }
+    }
+
+    public List<ProcessedSqlStatement> buildDeleteCleanupStatements() {
+        String sql = """
+              select tableid, rowid
+              from mergedelete
+              where rowid is not null
+              """;
+
+        List<ProcessedSqlStatement> statements = new ArrayList<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                statements.add(new ProcessedSqlStatement(
+                        "delete from mergedelete where tableid = ? and rowid = ?",
+                        List.of(
+                                resultSet.getString("tableid"),
+                                resultSet.getString("rowid")
+                        )
+                ));
+            }
+
+            return statements;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to build delete cleanup statements", e);
+        }
+    }
+
+
+
     public List<Map<String, Object>> findRowsWithMergeUpdate(String tableName) {
         String sql = "select * from " + tableName + " where mergeupdate > 0 and rowid is not null";
 
