@@ -13,6 +13,10 @@ import java.util.zip.ZipInputStream;
 import com.ampliapps.amplisync.devclient.PayloadBuilder.PushPayload;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPInputStream;
+
 
 
 public class SyncDevClient {
@@ -126,6 +130,44 @@ public class SyncDevClient {
             throw new IllegalStateException("Send changes request was interrupted", e);
         }
     }
+
+    public String pullChangesForTable(String tableName, String deviceId) {
+        if (tableName == null || tableName.isBlank()) {
+            throw new IllegalArgumentException("tableName can't be empty");
+        }
+
+        if (deviceId == null || deviceId.isBlank()) {
+            throw new IllegalArgumentException("deviceId can't be empty");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(syncBaseUrl + "sync-compressed/" + tableName + "/" + deviceId))
+                .header("Authorization", DEV_AUTH_HEADER)
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Pull changes failed with status: " + response.statusCode());
+            }
+
+            return unzipGzip(response.body());
+        } catch (IOException e) {
+            throw new IllegalStateException("Pull changes request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Pull changes request was interrupted", e);
+        }
+    }
+
+    private static String unzipGzip(byte[] compressedBytes) throws IOException {
+        try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+            return new String(gzipInputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
 
 
     public Path unpackDatabaseArchive(Path archivePath, Path outputDirectory) {

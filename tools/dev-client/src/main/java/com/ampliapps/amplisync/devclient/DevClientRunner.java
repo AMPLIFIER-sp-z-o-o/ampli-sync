@@ -66,6 +66,12 @@ public class DevClientRunner {
 
             System.out.println("Payload after cleanup:");
             System.out.println(objectMapper.writeValueAsString(payloadBuilder.buildPushPayload()));
+
+            String pullResponse = client.pullChangesForTable("demo_customers", deviceId);
+
+            System.out.println("Pull changes response:");
+            System.out.println(pullResponse);
+
         }
     }
 }
