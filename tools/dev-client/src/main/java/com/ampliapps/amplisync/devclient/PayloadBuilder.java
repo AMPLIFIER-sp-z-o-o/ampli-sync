@@ -1,7 +1,6 @@
 package com.ampliapps.amplisync.devclient;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -20,7 +19,7 @@ public class PayloadBuilder {
             List<Map<String, Object>> updates = database.findRowsWithMergeUpdate(tableName);
 
             if (!inserts.isEmpty()) {
-                changes.add(new TableChanges(tableName, inserts, Collections.emptyList()));
+                changes.add(new TableChanges(tableName, inserts, updates));
             }
         }
 

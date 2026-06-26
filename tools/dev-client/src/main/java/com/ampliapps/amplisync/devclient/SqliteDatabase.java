@@ -204,6 +204,27 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public String findFirstExistingCustomer() {
+        String sql = """
+              select id
+              from demo_customers
+              where rowid is not null
+              limit 1
+              """;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            if (!resultSet.next()) {
+                throw new IllegalStateException("No existing demo customer found");
+            }
+
+            return resultSet.getString("id");
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find existing demo customer", e);
+        }
+    }
+
+
     @Override
     public void close() {
         try {

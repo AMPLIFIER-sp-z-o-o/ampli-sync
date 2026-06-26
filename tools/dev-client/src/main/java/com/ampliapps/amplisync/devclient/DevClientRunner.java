@@ -41,6 +41,16 @@ public class DevClientRunner {
                 System.out.println(change);
             }
 
+            String existingCustomerId = database.findFirstExistingCustomer();
+            database.updateDemoCustomerCity(existingCustomerId, "Lodz");
+
+            System.out.println("Updated existing demo customer: " + existingCustomerId);
+            System.out.println("Changes after existing customer update:");
+            for (TableChanges change : payloadBuilder.buildChanges()) {
+                System.out.println(change);
+            }
+
+
             database.deleteDemoCustomer(customerId);
             System.out.println("Deleted demo customer: " + customerId);
             System.out.println("Demo customers after delete:");
