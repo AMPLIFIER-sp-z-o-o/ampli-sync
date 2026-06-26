@@ -224,6 +224,26 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public List<DeletedRecord> findDeletedRecords() {
+        String sql = "select tableid, rowid from mergedelete";
+
+        List<DeletedRecord> deletes = new ArrayList<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                deletes.add(new DeletedRecord(
+                        resultSet.getString("tableid"),
+                        resultSet.getString("rowid")
+                ));
+            }
+
+            return deletes;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find deleted records", e);
+        }
+    }
+
 
     @Override
     public void close() {

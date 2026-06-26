@@ -50,11 +50,16 @@ public class DevClientRunner {
                 System.out.println(change);
             }
 
-
             database.deleteDemoCustomer(customerId);
             System.out.println("Deleted demo customer: " + customerId);
             System.out.println("Demo customers after delete:");
             database.printDemoCustomers();
+
+            System.out.println("Deleted records:");
+            for (DeletedRecord deletedRecord : database.findDeletedRecords()) {
+                System.out.println(deletedRecord);
+            }
+
         }
     }
 }
