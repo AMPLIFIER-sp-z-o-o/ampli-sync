@@ -24,6 +24,13 @@ public class DevClientRunner {
             System.out.println("Demo customers after insert:");
             database.printDemoCustomers();
 
+            PayloadBuilder payloadBuilder = new PayloadBuilder(database);
+
+            System.out.println("Insert changes:");
+            for (TableChanges change : payloadBuilder.findInsertChanges()) {
+                System.out.println(change);
+            }
+
             database.updateDemoCustomerCity(customerId, "Krakow");
             System.out.println("Updated demo customer: " + customerId);
             System.out.println("Demo customers after update:");

@@ -8,6 +8,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
+import java.sql.ResultSetMetaData;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 
 public class SqliteDatabase implements AutoCloseable {
     private final Connection connection;
@@ -43,6 +49,65 @@ public class SqliteDatabase implements AutoCloseable {
             throw new IllegalStateException("Failed to check SQLite table: " + tableName, e);
         }
     }
+
+    public List<String> findSynchronizedTables() {
+        String sql = """
+              select tbl_name
+              from sqlite_master
+              where type = 'table'
+                and sql like '%rowid%'
+                and tbl_name != 'mergedelete'
+              """;
+
+        List<String> tableNames = new ArrayList<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                tableNames.add(resultSet.getString("tbl_name"));
+            }
+
+            return tableNames;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find synchronized tables", e);
+        }
+    }
+
+    public List<Map<String, Object>> findRowsWithNullRowId(String tableName) {
+        String sql = "select * from " + tableName + " where rowid is null";
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            return toRows(resultSet);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find inserts for table: " + tableName, e);
+        }
+    }
+
+    private static List<Map<String, Object>> toRows(ResultSet resultSet) throws SQLException {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+
+        while (resultSet.next()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                String columnName = metaData.getColumnName(columnIndex);
+
+                if ("mergeupdate".equals(columnName)) {
+                    continue;
+                }
+
+                row.put(columnName, resultSet.getObject(columnIndex));
+            }
+
+            rows.add(row);
+        }
+
+        return rows;
+    }
+
 
     public void printDemoCustomers() {
         String sql = "select id, name, email, city from demo_customers";
