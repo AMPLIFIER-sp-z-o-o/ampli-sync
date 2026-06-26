@@ -259,6 +259,76 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void insertRow(String tableName, Map<String, Object> values) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Insert values cannot be empty");
+        }
+
+        String columns = String.join(", ", values.keySet());
+        String placeholders = buildPlaceholders(values.size());
+
+        String sql = "insert into " + tableName + " (" + columns + ") values (" + placeholders + ")";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            setStatementArgs(statement, new ArrayList<>(values.values()));
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to insert row into table: " + tableName, e);
+        }
+    }
+
+    public void updateRow(String tableName, Map<String, Object> values, String whereColumn, Object whereValue) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Update values cannot be empty");
+        }
+
+        List<String> assignments = new ArrayList<>();
+
+        for (String columnName : values.keySet()) {
+            assignments.add(columnName + " = ?");
+        }
+
+        String sql = "update " + tableName + " set " + String.join(", ", assignments) + " where " + whereColumn + " = ?";
+
+        List<Object> args = new ArrayList<>(values.values());
+        args.add(whereValue);
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            setStatementArgs(statement, args);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to update row in table: " + tableName, e);
+        }
+    }
+
+    public void deleteRow(String tableName, String whereColumn, Object whereValue) {
+        String sql = "delete from " + tableName + " where " + whereColumn + " = ?";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, whereValue);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to delete row from table: " + tableName, e);
+        }
+    }
+
+    private static String buildPlaceholders(int count) {
+        List<String> placeholders = new ArrayList<>();
+
+        for (int index = 0; index < count; index++) {
+            placeholders.add("?");
+        }
+
+        return String.join(", ", placeholders);
+    }
+
+    private static void setStatementArgs(PreparedStatement statement, List<Object> args) throws SQLException {
+        for (int index = 0; index < args.size(); index++) {
+            statement.setObject(index + 1, args.get(index));
+        }
+    }
+
+
     public String findFirstExistingCustomer() {
         String sql = """
               select id
