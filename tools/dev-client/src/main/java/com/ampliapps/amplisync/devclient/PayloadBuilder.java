@@ -7,8 +7,18 @@ import java.util.Map;
 public class PayloadBuilder {
     private final SqliteDatabase database;
 
+    public record PushPayload(
+            List<TableChanges> changes,
+            List<DeletedRecord> deletes
+    ) {
+    }
+
     public PayloadBuilder(SqliteDatabase database) {
         this.database = database;
+    }
+
+    public PushPayload buildPushPayload() {
+        return new PushPayload(buildChanges(), database.findDeletedRecords());
     }
 
     public List<TableChanges> buildChanges() {
@@ -18,7 +28,7 @@ public class PayloadBuilder {
             List<Map<String, Object>> inserts = database.findRowsWithNullRowId(tableName);
             List<Map<String, Object>> updates = database.findRowsWithMergeUpdate(tableName);
 
-            if (!inserts.isEmpty()) {
+            if (!inserts.isEmpty() || !updates.isEmpty()) {
                 changes.add(new TableChanges(tableName, inserts, updates));
             }
         }

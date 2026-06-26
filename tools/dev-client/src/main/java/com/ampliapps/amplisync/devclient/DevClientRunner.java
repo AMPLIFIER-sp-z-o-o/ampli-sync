@@ -60,6 +60,9 @@ public class DevClientRunner {
                 System.out.println(deletedRecord);
             }
 
+            System.out.println("Full push payload:");
+            System.out.println(payloadBuilder.buildPushPayload());
+
         }
     }
 }
