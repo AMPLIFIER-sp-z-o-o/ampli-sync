@@ -225,7 +225,11 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
     public List<DeletedRecord> findDeletedRecords() {
-        String sql = "select tableid, rowid from mergedelete";
+        String sql = """
+                        select tableid, rowid 
+                        from mergedelete
+                        where rowid is not null
+                        """;
 
         List<DeletedRecord> deletes = new ArrayList<>();
 
