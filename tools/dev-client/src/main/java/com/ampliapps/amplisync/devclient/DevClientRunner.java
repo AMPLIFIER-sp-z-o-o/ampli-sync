@@ -1,10 +1,12 @@
 package com.ampliapps.amplisync.devclient;
 
 import java.nio.file.Path;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class DevClientRunner {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         SyncDevClient client = new SyncDevClient("http://localhost:8080/ampli-sync/");
+        ObjectMapper objectMapper = new ObjectMapper();
 
         System.out.println(client.healthCheck());
 
@@ -60,8 +62,14 @@ public class DevClientRunner {
                 System.out.println(deletedRecord);
             }
 
+            PayloadBuilder.PushPayload pushPayload = payloadBuilder.buildPushPayload();
+
             System.out.println("Full push payload:");
-            System.out.println(payloadBuilder.buildPushPayload());
+            System.out.println(pushPayload);
+
+            System.out.println("Full push payload JSON:");
+            System.out.println(objectMapper.writeValueAsString(pushPayload));
+
 
         }
     }
