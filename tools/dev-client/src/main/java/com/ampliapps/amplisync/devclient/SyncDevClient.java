@@ -10,16 +10,23 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import com.ampliapps.amplisync.devclient.PayloadBuilder.PushPayload;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 public class SyncDevClient {
     private static final String DEV_AUTH_HEADER = "Bearer dev-local-token";
 
     private final String syncBaseUrl;
     private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     public SyncDevClient(String syncBaseUrl) {
         this.syncBaseUrl = normalizeBaseUrl(syncBaseUrl);
         this.httpClient = HttpClient.newHttpClient();
+        this.objectMapper = new ObjectMapper();
+
     }
 
     public String healthCheck() {
@@ -86,7 +93,41 @@ public class SyncDevClient {
             throw new IllegalStateException("Prepopulate database request was interrupted", e);
         }
     }
-    
+
+    public void sendChanges(String deviceId, PushPayload payload) {
+        if (deviceId == null || deviceId.isBlank()) {
+            throw new IllegalArgumentException("deviceId can't be empty");
+        }
+
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize push payload", e);
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(syncBaseUrl + "receive-changes/" + deviceId))
+                .header("Authorization", DEV_AUTH_HEADER)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Send changes failed with status: " + response.statusCode());
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Send changes request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Send changes request was interrupted", e);
+        }
+    }
+
+
     public Path unpackDatabaseArchive(Path archivePath, Path outputDirectory) {
         try {
             Files.createDirectories(outputDirectory);

@@ -70,6 +70,10 @@ public class DevClientRunner {
             System.out.println("Full push payload JSON:");
             System.out.println(objectMapper.writeValueAsString(pushPayload));
 
+            client.sendChanges("dev-client-device-1", pushPayload);
+            System.out.println("Push payload sent to backend.");
+
+
 
         }
     }
