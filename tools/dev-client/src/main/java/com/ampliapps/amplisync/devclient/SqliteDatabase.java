@@ -85,7 +85,7 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
     public List<Map<String, Object>> findRowsWithMergeUpdate(String tableName) {
-        String sql = "select * from " + tableName + "where mergeupdate > 0 and rowid is not null";
+        String sql = "select * from " + tableName + " where mergeupdate > 0 and rowid is not null";
 
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {
