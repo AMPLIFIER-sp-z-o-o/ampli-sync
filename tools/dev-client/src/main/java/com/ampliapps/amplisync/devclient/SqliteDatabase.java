@@ -303,6 +303,26 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void executeProcessedStatements(List<ProcessedSqlStatement> statements) {
+        for (ProcessedSqlStatement processedStatement : statements) {
+            try (PreparedStatement statement = connection.prepareStatement(processedStatement.sql())) {
+                List<Object> args = processedStatement.args();
+
+                for (int index = 0; index < args.size(); index++) {
+                    statement.setObject(index + 1, args.get(index));
+                }
+
+                statement.executeUpdate();
+            } catch (SQLException e) {
+                throw new IllegalStateException("Failed to execute processed SQL statement: " + processedStatement.sql(), e);
+            }
+        }
+    }
+
+    public void clearProcessedChanges(PayloadBuildResult result) {
+        executeProcessedStatements(result.recordUpdates());
+        executeProcessedStatements(result.recordDeletes());
+    }
 
     @Override
     public void close() {

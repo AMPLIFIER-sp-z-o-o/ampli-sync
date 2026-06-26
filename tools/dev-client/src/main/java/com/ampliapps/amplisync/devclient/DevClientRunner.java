@@ -73,7 +73,19 @@ public class DevClientRunner {
             client.sendChanges("dev-client-device-1", pushPayload);
             System.out.println("Push payload sent to backend.");
 
+            PayloadBuildResult result = payloadBuilder.buildPushPayloadResult();
 
+            System.out.println("Full push payload:");
+            System.out.println(result.payload());
+
+            System.out.println("Full push payload JSON:");
+            System.out.println(objectMapper.writeValueAsString(result.payload()));
+
+            client.sendChanges("dev-client-device-1", result.payload());
+            System.out.println("Push payload sent to backend.");
+
+            database.clearProcessedChanges(result);
+            System.out.println("Local processed changes cleared.");
 
         }
     }
