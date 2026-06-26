@@ -35,7 +35,11 @@ public class DevClientRunner {
             database.insertRow("demo_customers", customer);
             System.out.println("Inserted demo customer: " + customerId);
 
-            String existingCustomerId = database.findFirstExistingCustomer();
+            String existingCustomerId = database.findFirstValue(
+                    "demo_customers",
+                    "id",
+                    "rowid is not null"
+            );
 
             database.updateRow(
                     "demo_customers",

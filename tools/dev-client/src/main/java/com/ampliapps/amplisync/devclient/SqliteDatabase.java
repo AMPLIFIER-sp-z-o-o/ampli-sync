@@ -244,25 +244,21 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
 
-    public String findFirstExistingCustomer() {
-        String sql = """
-              select id
-              from demo_customers
-              where rowid is not null
-              limit 1
-              """;
+    public String findFirstValue(String tableName, String columnName, String whereClause) {
+        String sql = "select " + columnName + " from " + tableName + " where " + whereClause + " limit 1";
 
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {
             if (!resultSet.next()) {
-                throw new IllegalStateException("No existing demo customer found");
+                throw new IllegalStateException("No row found in table: " + tableName);
             }
 
-            return resultSet.getString("id");
+            return resultSet.getString(columnName);
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to find existing demo customer", e);
+            throw new IllegalStateException("Failed to find first value in table: " + tableName, e);
         }
     }
+
 
     public List<DeletedRecord> findDeletedRecords() {
         String sql = """
