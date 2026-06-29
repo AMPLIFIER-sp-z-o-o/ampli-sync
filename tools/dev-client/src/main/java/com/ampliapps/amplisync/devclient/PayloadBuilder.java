@@ -35,4 +35,19 @@ public class PayloadBuilder {
 
         return changes;
     }
+
+    public PayloadBuildResult buildPushPayloadResult() {
+        List<ProcessedSqlStatement> recordsUpdated = new ArrayList<>();
+
+        for (String tableName : database.findSynchronizedTables()) {
+            recordsUpdated.addAll(database.buildUpdateCleanupStatements(tableName));
+        }
+
+        return new PayloadBuildResult(
+                buildPushPayload(),
+                recordsUpdated,
+                database.buildDeleteCleanupStatements()
+        );
+    }
+
 }

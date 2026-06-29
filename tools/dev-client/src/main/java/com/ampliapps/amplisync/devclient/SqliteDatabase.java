@@ -84,6 +84,61 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public List<ProcessedSqlStatement> buildUpdateCleanupStatements(String tableName) {
+        String sql = """
+                select rowid, mergeupdate
+                from %s
+                where mergeupdate > 0 and rowid is not null
+                """.formatted(tableName);
+
+        List<ProcessedSqlStatement> statements = new ArrayList<>();
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                statements.add(new ProcessedSqlStatement(
+                        "update " + tableName + " set mergeupdate = 0 where rowid = ? and mergeupdate = ?",
+                        List.of(
+                                resultSet.getString("rowid"),
+                                resultSet.getObject("mergeupdate")
+                        )
+                ));
+            }
+
+            return statements;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to build update cleanup statements for table: " + tableName, e);
+        }
+    }
+
+    public List<ProcessedSqlStatement> buildDeleteCleanupStatements() {
+        String sql = """
+              select tableid, rowid
+              from mergedelete
+              where rowid is not null
+              """;
+
+        List<ProcessedSqlStatement> statements = new ArrayList<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                statements.add(new ProcessedSqlStatement(
+                        "delete from mergedelete where tableid = ? and rowid = ?",
+                        List.of(
+                                resultSet.getString("tableid"),
+                                resultSet.getString("rowid")
+                        )
+                ));
+            }
+
+            return statements;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to build delete cleanup statements", e);
+        }
+    }
+
+
+
     public List<Map<String, Object>> findRowsWithMergeUpdate(String tableName) {
         String sql = "select * from " + tableName + " where mergeupdate > 0 and rowid is not null";
 
@@ -119,110 +174,91 @@ public class SqliteDatabase implements AutoCloseable {
         return rows;
     }
 
-
-    public void printDemoCustomers() {
-        String sql = "select id, name, email, city from demo_customers";
-
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql)) {
-            while (resultSet.next()) {
-                System.out.println(
-                        resultSet.getString("id") + " | " + resultSet.getString("name") + " | " + resultSet.getString("email") + " | " + resultSet.getString("city")
-                );
-            }
-        } catch (SQLException e) {
-            throw new IllegalStateException("Failed to print demo customers", e);
-        }
-    }
-
-    public void printNewInserts() {
-        String sql = """
-            select id, name, email, city
-            from demo_customers
-            where rowid is null
-            """;
-
-        try (Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(sql)){
-                while (resultSet.next()){
-                    System.out.println(
-                            resultSet.getString("id") + " | " + resultSet.getString("name") + " | " + resultSet.getString("email") + " | " + resultSet.getString("city")
-                    );
-                }
-        }catch (SQLException e) {
-                throw new IllegalStateException("Failed to print new inserts with rowid = null");
+    public void insertRow(String tableName, Map<String, Object> values) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Insert values cannot be empty");
         }
 
-    }
+        String columns = String.join(", ", values.keySet());
+        String placeholders = buildPlaceholders(values.size());
 
-    public String insertDemoCustomer(String name, String email, String city) {
-        String id = UUID.randomUUID().toString();
-        String sql = """
-              insert into demo_customers (id, name, email, city)
-              values (?, ?, ?, ?)
-              """;
+        String sql = "insert into " + tableName + " (" + columns + ") values (" + placeholders + ")";
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, id);
-            statement.setString(2, name);
-            statement.setString(3, email);
-            statement.setString(4, city);
+            setStatementArgs(statement, new ArrayList<>(values.values()));
             statement.executeUpdate();
-            return id;
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to insert demo customer", e);
+            throw new IllegalStateException("Failed to insert row into table: " + tableName, e);
         }
     }
 
-    public void updateDemoCustomerCity(String customerId, String city) {
-        String sql = """
-              update demo_customers
-              set city = ?
-              where id = ?
-              """;
+    public void updateRow(String tableName, Map<String, Object> values, String whereColumn, Object whereValue) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Update values cannot be empty");
+        }
+
+        List<String> assignments = new ArrayList<>();
+
+        for (String columnName : values.keySet()) {
+            assignments.add(columnName + " = ?");
+        }
+
+        String sql = "update " + tableName + " set " + String.join(", ", assignments) + " where " + whereColumn + " = ?";
+
+        List<Object> args = new ArrayList<>(values.values());
+        args.add(whereValue);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, city);
-            statement.setString(2, customerId);
+            setStatementArgs(statement, args);
             statement.executeUpdate();
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to update demo customer", e);
+            throw new IllegalStateException("Failed to update row in table: " + tableName, e);
         }
     }
 
-    public void deleteDemoCustomer(String customerId) {
-        String sql = """
-              delete from demo_customers
-              where id = ?
-              """;
+    public void deleteRow(String tableName, String whereColumn, Object whereValue) {
+        String sql = "delete from " + tableName + " where " + whereColumn + " = ?";
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, customerId);
+            statement.setObject(1, whereValue);
             statement.executeUpdate();
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to delete demo customer", e);
+            throw new IllegalStateException("Failed to delete row from table: " + tableName, e);
         }
     }
 
-    public String findFirstExistingCustomer() {
-        String sql = """
-              select id
-              from demo_customers
-              where rowid is not null
-              limit 1
-              """;
+    private static String buildPlaceholders(int count) {
+        List<String> placeholders = new ArrayList<>();
+
+        for (int index = 0; index < count; index++) {
+            placeholders.add("?");
+        }
+
+        return String.join(", ", placeholders);
+    }
+
+    private static void setStatementArgs(PreparedStatement statement, List<Object> args) throws SQLException {
+        for (int index = 0; index < args.size(); index++) {
+            statement.setObject(index + 1, args.get(index));
+        }
+    }
+
+
+    public String findFirstValue(String tableName, String columnName, String whereClause) {
+        String sql = "select " + columnName + " from " + tableName + " where " + whereClause + " limit 1";
 
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {
             if (!resultSet.next()) {
-                throw new IllegalStateException("No existing demo customer found");
+                throw new IllegalStateException("No row found in table: " + tableName);
             }
 
-            return resultSet.getString("id");
+            return resultSet.getString(columnName);
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to find existing demo customer", e);
+            throw new IllegalStateException("Failed to find first value in table: " + tableName, e);
         }
     }
+
 
     public List<DeletedRecord> findDeletedRecords() {
         String sql = """
@@ -248,6 +284,26 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void executeProcessedStatements(List<ProcessedSqlStatement> statements) {
+        for (ProcessedSqlStatement processedStatement : statements) {
+            try (PreparedStatement statement = connection.prepareStatement(processedStatement.sql())) {
+                List<Object> args = processedStatement.args();
+
+                for (int index = 0; index < args.size(); index++) {
+                    statement.setObject(index + 1, args.get(index));
+                }
+
+                statement.executeUpdate();
+            } catch (SQLException e) {
+                throw new IllegalStateException("Failed to execute processed SQL statement: " + processedStatement.sql(), e);
+            }
+        }
+    }
+
+    public void clearProcessedChanges(PayloadBuildResult result) {
+        executeProcessedStatements(result.recordUpdates());
+        executeProcessedStatements(result.recordDeletes());
+    }
 
     @Override
     public void close() {

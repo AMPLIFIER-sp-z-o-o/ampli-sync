@@ -1,68 +1,72 @@
 package com.ampliapps.amplisync.devclient;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.UUID;
 
 public class DevClientRunner {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        String deviceId = "dev-client-device-1";
+
         SyncDevClient client = new SyncDevClient("http://localhost:8080/ampli-sync/");
+        ObjectMapper objectMapper = new ObjectMapper();
 
         System.out.println(client.healthCheck());
 
         Path outputDirectory = Path.of("/tmp/ampli-sync-dev-client");
-        Path archivePath = client.downloadPrepopulatedDatabaseArchive("dev-client-device-1", outputDirectory);
+        Path archivePath = client.downloadPrepopulatedDatabaseArchive(deviceId, outputDirectory);
         Path databasePath = client.unpackDatabaseArchive(archivePath, outputDirectory);
 
         try (SqliteDatabase database = SqliteDatabase.open(databasePath)) {
-            System.out.println("demo_customers exists: " + database.tableExists("demo_customers"));
-            String customerId = database.insertDemoCustomer(
-                    "Dev Client Customer",
-                    "client@gmail.com",
-                    "Warsaw"
-            );
-
-            System.out.println("Inserted demo customer: " + customerId);
-            System.out.println("Demo customers after insert:");
-            database.printDemoCustomers();
-
             PayloadBuilder payloadBuilder = new PayloadBuilder(database);
 
-            System.out.println("Insert changes:");
-            for (TableChanges change : payloadBuilder.buildChanges()) {
-                System.out.println(change);
-            }
+            String customerId = UUID.randomUUID().toString();
 
-            database.updateDemoCustomerCity(customerId, "Krakow");
-            System.out.println("Updated demo customer: " + customerId);
-            System.out.println("Demo customers after update:");
-            database.printDemoCustomers();
+            Map<String, Object> customer = Map.of(
+                    "id", customerId,
+                    "name", "Dev Client Customer",
+                    "email", "client@gmail.com",
+                    "city", "Warsaw"
+            );
 
-            System.out.println("Changes after update:");
-            for (TableChanges change : payloadBuilder.buildChanges()) {
-                System.out.println(change);
-            }
 
-            String existingCustomerId = database.findFirstExistingCustomer();
-            database.updateDemoCustomerCity(existingCustomerId, "Lodz");
+            database.insertRow("demo_customers", customer);
+            System.out.println("Inserted demo customer: " + customerId);
+
+            String existingCustomerId = database.findFirstValue(
+                    "demo_customers",
+                    "id",
+                    "rowid is not null"
+            );
+
+            database.updateRow(
+                    "demo_customers",
+                    Map.of("city", "Lodz"),
+                    "id",
+                    existingCustomerId
+            );
 
             System.out.println("Updated existing demo customer: " + existingCustomerId);
-            System.out.println("Changes after existing customer update:");
-            for (TableChanges change : payloadBuilder.buildChanges()) {
-                System.out.println(change);
-            }
 
-            database.deleteDemoCustomer(customerId);
-            System.out.println("Deleted demo customer: " + customerId);
-            System.out.println("Demo customers after delete:");
-            database.printDemoCustomers();
+            database.deleteRow("demo_customers", "id", customerId);
+            System.out.println("Deleted freshly inserted demo customer: " + customerId);
 
-            System.out.println("Deleted records:");
-            for (DeletedRecord deletedRecord : database.findDeletedRecords()) {
-                System.out.println(deletedRecord);
-            }
+            PayloadBuildResult result = payloadBuilder.buildPushPayloadResult();
 
-            System.out.println("Full push payload:");
-            System.out.println(payloadBuilder.buildPushPayload());
+            System.out.println("Push payload JSON:");
+            System.out.println(objectMapper.writeValueAsString(result.payload()));
 
+            client.sendChanges(deviceId, result.payload());
+            System.out.println("Push payload sent to backend.");
+
+            database.clearProcessedChanges(result);
+            System.out.println("Local processed changes cleared.");
+
+            System.out.println("Payload after cleanup:");
+            System.out.println(objectMapper.writeValueAsString(payloadBuilder.buildPushPayload()));
         }
     }
 }
+
