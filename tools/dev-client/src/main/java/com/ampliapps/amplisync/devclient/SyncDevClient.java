@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPInputStream;
+import java.util.List;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 
 
@@ -131,7 +133,7 @@ public class SyncDevClient {
         }
     }
 
-    public String pullChangesForTable(String tableName, String deviceId) {
+    public List<PullChanges> pullChangesForTable(String tableName, String deviceId) {
         if (tableName == null || tableName.isBlank()) {
             throw new IllegalArgumentException("tableName can't be empty");
         }
@@ -153,7 +155,10 @@ public class SyncDevClient {
                 throw new IllegalStateException("Pull changes failed with status: " + response.statusCode());
             }
 
-            return unzipGzip(response.body());
+            String json = unzipGzip(response.body());
+
+            return objectMapper.readValue(json, new TypeReference<List<PullChanges>>() {
+            });
         } catch (IOException e) {
             throw new IllegalStateException("Pull changes request failed", e);
         } catch (InterruptedException e) {
@@ -161,6 +166,7 @@ public class SyncDevClient {
             throw new IllegalStateException("Pull changes request was interrupted", e);
         }
     }
+
 
     private static String unzipGzip(byte[] compressedBytes) throws IOException {
         try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
