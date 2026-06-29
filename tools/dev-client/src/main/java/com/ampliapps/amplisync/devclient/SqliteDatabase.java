@@ -313,7 +313,49 @@ public class SqliteDatabase implements AutoCloseable {
 
 
     private void applyPullUpdates(PullChanges change) {
-        throw new UnsupportedOperationException("todo");
+        List<Map<String, Object>> updates = change.records().updates();
+
+        if (updates == null || updates.isEmpty()) {
+            return;
+        }
+
+        List<String> columns = extractColumnsFromUpdates(change.queryUpdate());
+
+        for (Map<String, Object> record : updates) {
+            List<Object> args = new ArrayList<>();
+
+            for (String column : columns) {
+                args.add(record.get(column));
+            }
+
+            executeSql(change.queryUpdate(), args);
+        }
+    }
+
+    private static List<String> extractColumnsFromUpdates(String queryUpdate) {
+        String lowerQuery = queryUpdate.toLowerCase();
+
+        int setStart = lowerQuery.indexOf(" set ");
+        int whereStart = lowerQuery.indexOf(" where ");
+
+        if (setStart < 0 || whereStart < 0 || whereStart <= setStart) {
+            throw new IllegalArgumentException("Cannot extract columns from update query: " + queryUpdate);
+        }
+
+        String setPart = queryUpdate.substring(setStart + " set ".length(), whereStart);
+        String wherePart = queryUpdate.substring(whereStart + " where ".length()).replace(";", "");
+
+        List<String> columns = new ArrayList<>();
+
+        for (String assignment : setPart.split(",")) {
+            columns.add(cleanColumnName(assignment.split("=")[0]));
+        }
+
+        for (String condition : wherePart.split("(?i)\\s+and\\s+")) {
+            columns.add(cleanColumnName(condition.split("=")[0]));
+        }
+
+        return columns;
     }
 
     private void applyPullDeletes(PullChanges change) {
