@@ -265,8 +265,52 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
     private void applyPullInserts(PullChanges change) {
-        throw new UnsupportedOperationException("todo");
+        List<Map<String, Object>> inserts = change.records().inserts();
+
+        if (inserts == null || inserts.isEmpty()) {
+            return;
+        }
+
+        List<String> columns = extractColumnsFromInserts(change.queryInsert());
+
+        for (Map<String, Object> record : inserts) {
+            List<Object> args = new ArrayList<>();
+
+            for (String column : columns) {
+                args.add(record.get(column));
+            }
+
+            executeSql(change.queryInsert(), args);
+        }
     }
+
+    private static List<String> extractColumnsFromInserts(String queryInsert) {
+        int start = queryInsert.indexOf('(');
+        int end = queryInsert.indexOf(')');
+
+        if (start < 0 || end < 0 || end <= start) {
+            throw new IllegalArgumentException("Cannot extract columns from insert query: " + queryInsert);
+        }
+
+        String columnsPart = queryInsert.substring(start + 1, end);
+
+        List<String> columns = new ArrayList<>();
+
+        for (String column : columnsPart.split(",")) {
+            columns.add(cleanColumnName(column));
+        }
+
+        return columns;
+    }
+
+    private static String cleanColumnName(String columnName) {
+        return columnName
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .trim();
+    }
+
 
     private void applyPullUpdates(PullChanges change) {
         throw new UnsupportedOperationException("todo");
