@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
+import java.util.List;
 
 public class DevClientRunner {
     public static void main(String[] args) throws Exception {
@@ -67,10 +68,12 @@ public class DevClientRunner {
             System.out.println("Payload after cleanup:");
             System.out.println(objectMapper.writeValueAsString(payloadBuilder.buildPushPayload()));
 
-            String pullResponse = client.pullChangesForTable("demo_customers", deviceId);
+            List<PullChanges> pullResponse = client.pullChangesForTable("demo_customers", deviceId);
+
 
             System.out.println("Pull changes response:");
-            System.out.println(pullResponse);
+            System.out.println(objectMapper.writeValueAsString(pullResponse));
+
 
         }
     }

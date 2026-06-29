@@ -227,6 +227,55 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void executeSql(String sql) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to execute SQL: " + sql, e);
+        }
+    }
+
+    public void executeSql(String sql, List<Object> args) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            setStatementArgs(statement, args);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to execute SQL: " + sql, e);
+        }
+    }
+
+    public void applyPullChanges(List<PullChanges> changes) {
+        for (PullChanges change : changes) {
+            applyPullChange(change);
+        }
+    }
+
+    private void applyPullChange(PullChanges change) {
+        executeSql(change.triggerInsertDrop());
+        executeSql(change.triggerUpdateDrop());
+        executeSql(change.triggerDeleteDrop());
+
+        applyPullInserts(change);
+        applyPullUpdates(change);
+        applyPullDeletes(change);
+
+        executeSql(change.triggerInsert());
+        executeSql(change.triggerUpdate());
+        executeSql(change.triggerDelete());
+    }
+
+    private void applyPullInserts(PullChanges change) {
+        throw new UnsupportedOperationException("todo");
+    }
+
+    private void applyPullUpdates(PullChanges change) {
+        throw new UnsupportedOperationException("todo");
+    }
+
+    private void applyPullDeletes(PullChanges change) {
+        throw new UnsupportedOperationException("todo");
+    }
+
     private static String buildPlaceholders(int count) {
         List<String> placeholders = new ArrayList<>();
 
