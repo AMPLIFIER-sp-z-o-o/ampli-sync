@@ -13,7 +13,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <jakarta.ws.rs.version>3.1.0</jakarta.ws.rs.version>
         <jersey.version>3.1.11</jersey.version>
-        <jackson.version>2.20.1</jackson.version>
+        <jackson.version>2.22.0</jackson.version>
         <junit.version>5.13.1</junit.version>
         <log4j.version>2.25.4</log4j.version>
     </properties>
