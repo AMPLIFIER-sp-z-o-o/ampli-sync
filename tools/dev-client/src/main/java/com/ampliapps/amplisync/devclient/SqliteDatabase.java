@@ -359,7 +359,20 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
     private void applyPullDeletes(PullChanges change) {
-        throw new UnsupportedOperationException("todo");
+        List<Map<String,Object>> deletes = change.records().deletes();
+
+        if (deletes == null || deletes.isEmpty()) {
+            return;
+        }
+
+        String sql = change.queryDelete().contains("?")
+                ? change.queryDelete()
+                : change.queryDelete().trim() + "?";
+
+        for (Map<String, Object> record : deletes) {
+            executeSql(sql, List.of(record.get("rowid")));
+        }
+
     }
 
     private static String buildPlaceholders(int count) {
