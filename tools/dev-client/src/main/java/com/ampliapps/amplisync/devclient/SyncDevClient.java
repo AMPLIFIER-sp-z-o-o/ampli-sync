@@ -167,6 +167,32 @@ public class SyncDevClient {
         }
     }
 
+    public void commitSync(int syncId) {
+        if (syncId <= 0) {
+            return;
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(syncBaseUrl + "commit-sync/" + syncId))
+                .header("Authorization", DEV_AUTH_HEADER)
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Commit sync failed with status: " + response.statusCode());
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Commit sync request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Commit sync request was interrupted", e);
+        }
+    }
+
+
 
     private static String unzipGzip(byte[] compressedBytes) throws IOException {
         try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
