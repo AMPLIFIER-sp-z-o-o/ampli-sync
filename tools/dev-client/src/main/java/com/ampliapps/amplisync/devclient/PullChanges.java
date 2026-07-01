@@ -1,10 +1,13 @@
 package com.ampliapps.amplisync.devclient;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 
 import java.util.List;
 import java.util.Map;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record PullChanges(
         @JsonProperty("TableName")
         String tableName,

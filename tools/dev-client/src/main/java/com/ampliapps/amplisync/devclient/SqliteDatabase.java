@@ -251,6 +251,9 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
     private void applyPullChange(PullChanges change) {
+        if (change.syncId() <= 0 || change.records() == null) {
+            return;
+        }
         executeSql(change.triggerInsertDrop());
         executeSql(change.triggerUpdateDrop());
         executeSql(change.triggerDeleteDrop());
