@@ -414,6 +414,20 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public boolean rowExists(String tableName, String whereColumn, Object whereValue) {
+        String sql = "select 1 from " + tableName + " where " + whereColumn + " = ? limit 1";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, whereValue);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to check row in table: " + tableName, e);
+        }
+    }
+
 
     public List<DeletedRecord> findDeletedRecords() {
         String sql = """

@@ -73,6 +73,11 @@ public class SyncDevice implements AutoCloseable {
         return database.findFirstValue(tableName, columnName, whereColumn, whereValue);
     }
 
+    public boolean rowExists(String tableName, String whereColumn, Object whereValue) {
+        requireDatabase();
+        return database.rowExists(tableName, whereColumn, whereValue);
+    }
+
     public String deviceId() {
         return deviceId;
     }
