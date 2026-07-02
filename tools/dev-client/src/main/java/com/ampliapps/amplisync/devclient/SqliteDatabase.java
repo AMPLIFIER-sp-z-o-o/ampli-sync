@@ -1,5 +1,6 @@
 package com.ampliapps.amplisync.devclient;
 
+import javax.xml.transform.Result;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -227,6 +228,157 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public void executeSql(String sql) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to execute SQL: " + sql, e);
+        }
+    }
+
+    public void executeSql(String sql, List<Object> args) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            setStatementArgs(statement, args);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to execute SQL: " + sql, e);
+        }
+    }
+
+    public void applyPullChanges(List<PullChanges> changes) {
+        for (PullChanges change : changes) {
+            applyPullChange(change);
+        }
+    }
+
+    private void applyPullChange(PullChanges change) {
+        if (change.syncId() <= 0 || change.records() == null) {
+            return;
+        }
+        executeSql(change.triggerInsertDrop());
+        executeSql(change.triggerUpdateDrop());
+        executeSql(change.triggerDeleteDrop());
+
+        applyPullInserts(change);
+        applyPullUpdates(change);
+        applyPullDeletes(change);
+
+        executeSql(change.triggerInsert());
+        executeSql(change.triggerUpdate());
+        executeSql(change.triggerDelete());
+    }
+
+    private void applyPullInserts(PullChanges change) {
+        List<Map<String, Object>> inserts = change.records().inserts();
+
+        if (inserts == null || inserts.isEmpty()) {
+            return;
+        }
+
+        List<String> columns = extractColumnsFromInserts(change.queryInsert());
+
+        for (Map<String, Object> record : inserts) {
+            List<Object> args = new ArrayList<>();
+
+            for (String column : columns) {
+                args.add(record.get(column));
+            }
+
+            executeSql(change.queryInsert(), args);
+        }
+    }
+
+    private static List<String> extractColumnsFromInserts(String queryInsert) {
+        int start = queryInsert.indexOf('(');
+        int end = queryInsert.indexOf(')');
+
+        if (start < 0 || end < 0 || end <= start) {
+            throw new IllegalArgumentException("Cannot extract columns from insert query: " + queryInsert);
+        }
+
+        String columnsPart = queryInsert.substring(start + 1, end);
+
+        List<String> columns = new ArrayList<>();
+
+        for (String column : columnsPart.split(",")) {
+            columns.add(cleanColumnName(column));
+        }
+
+        return columns;
+    }
+
+    private static String cleanColumnName(String columnName) {
+        return columnName
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .trim();
+    }
+
+
+    private void applyPullUpdates(PullChanges change) {
+        List<Map<String, Object>> updates = change.records().updates();
+
+        if (updates == null || updates.isEmpty()) {
+            return;
+        }
+
+        List<String> columns = extractColumnsFromUpdates(change.queryUpdate());
+
+        for (Map<String, Object> record : updates) {
+            List<Object> args = new ArrayList<>();
+
+            for (String column : columns) {
+                args.add(record.get(column));
+            }
+
+            executeSql(change.queryUpdate(), args);
+        }
+    }
+
+    private static List<String> extractColumnsFromUpdates(String queryUpdate) {
+        String lowerQuery = queryUpdate.toLowerCase();
+
+        int setStart = lowerQuery.indexOf(" set ");
+        int whereStart = lowerQuery.indexOf(" where ");
+
+        if (setStart < 0 || whereStart < 0 || whereStart <= setStart) {
+            throw new IllegalArgumentException("Cannot extract columns from update query: " + queryUpdate);
+        }
+
+        String setPart = queryUpdate.substring(setStart + " set ".length(), whereStart);
+        String wherePart = queryUpdate.substring(whereStart + " where ".length()).replace(";", "");
+
+        List<String> columns = new ArrayList<>();
+
+        for (String assignment : setPart.split(",")) {
+            columns.add(cleanColumnName(assignment.split("=")[0]));
+        }
+
+        for (String condition : wherePart.split("(?i)\\s+and\\s+")) {
+            columns.add(cleanColumnName(condition.split("=")[0]));
+        }
+
+        return columns;
+    }
+
+    private void applyPullDeletes(PullChanges change) {
+        List<Map<String,Object>> deletes = change.records().deletes();
+
+        if (deletes == null || deletes.isEmpty()) {
+            return;
+        }
+
+        String sql = change.queryDelete().contains("?")
+                ? change.queryDelete()
+                : change.queryDelete().trim() + "?";
+
+        for (Map<String, Object> record : deletes) {
+            executeSql(sql, List.of(record.get("rowid")));
+        }
+
+    }
+
     private static String buildPlaceholders(int count) {
         List<String> placeholders = new ArrayList<>();
 
@@ -244,16 +396,19 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
 
-    public String findFirstValue(String tableName, String columnName, String whereClause) {
-        String sql = "select " + columnName + " from " + tableName + " where " + whereClause + " limit 1";
+    public String findFirstValue(String tableName, String columnName, String whereColumn, Object whereValue) {
+        String sql = "select " + columnName + " from " + tableName + " where " + whereColumn + " = ? limit 1";
 
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql)) {
-            if (!resultSet.next()) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+             statement.setObject(1, whereValue);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getString(columnName);
+                }
+
                 throw new IllegalStateException("No row found in table: " + tableName);
             }
-
-            return resultSet.getString(columnName);
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to find first value in table: " + tableName, e);
         }

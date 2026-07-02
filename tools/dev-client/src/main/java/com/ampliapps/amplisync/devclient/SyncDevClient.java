@@ -13,6 +13,12 @@ import java.util.zip.ZipInputStream;
 import com.ampliapps.amplisync.devclient.PayloadBuilder.PushPayload;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPInputStream;
+import java.util.List;
+import com.fasterxml.jackson.core.type.TypeReference;
+
 
 
 public class SyncDevClient {
@@ -126,6 +132,74 @@ public class SyncDevClient {
             throw new IllegalStateException("Send changes request was interrupted", e);
         }
     }
+
+    public List<PullChanges> pullChangesForTable(String tableName, String deviceId) {
+        if (tableName == null || tableName.isBlank()) {
+            throw new IllegalArgumentException("tableName can't be empty");
+        }
+
+        if (deviceId == null || deviceId.isBlank()) {
+            throw new IllegalArgumentException("deviceId can't be empty");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(syncBaseUrl + "sync-compressed/" + tableName + "/" + deviceId))
+                .header("Authorization", DEV_AUTH_HEADER)
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Pull changes failed with status: " + response.statusCode());
+            }
+
+            String json = unzipGzip(response.body());
+
+            return objectMapper.readValue(json, new TypeReference<List<PullChanges>>() {
+            });
+        } catch (IOException e) {
+            throw new IllegalStateException("Pull changes request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Pull changes request was interrupted", e);
+        }
+    }
+
+    public void commitSync(int syncId) {
+        if (syncId <= 0) {
+            return;
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(syncBaseUrl + "commit-sync/" + syncId))
+                .header("Authorization", DEV_AUTH_HEADER)
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Commit sync failed with status: " + response.statusCode());
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Commit sync request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Commit sync request was interrupted", e);
+        }
+    }
+
+
+
+    private static String unzipGzip(byte[] compressedBytes) throws IOException {
+        try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+            return new String(gzipInputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
 
 
     public Path unpackDatabaseArchive(Path archivePath, Path outputDirectory) {
