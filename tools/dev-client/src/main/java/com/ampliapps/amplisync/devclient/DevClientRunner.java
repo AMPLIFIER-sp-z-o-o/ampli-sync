@@ -6,10 +6,12 @@ import java.util.UUID;
 
 public class DevClientRunner {
     public static void main(String[] args) throws Exception {
-        SyncDevClient client = new SyncDevClient("http://localhost:8080/ampli-sync/");
+        String devUserId = argumentOrDefault(args, 0, "1");
+        String deviceAId = argumentOrDefault(args, 1, "dev-client-device-a");
+        String deviceBId = argumentOrDefault(args, 2, "dev-client-device-b");
 
-        String deviceAId = argumentOrDefault(args, 0, "dev-client-device-a");
-        String deviceBId = argumentOrDefault(args, 1, "dev-client-device-b");
+        SyncDevClient client = new SyncDevClient("http://localhost:8080/ampli-sync/", devUserId);
+
 
         try (SyncDevice deviceA = new SyncDevice(
                 client,
