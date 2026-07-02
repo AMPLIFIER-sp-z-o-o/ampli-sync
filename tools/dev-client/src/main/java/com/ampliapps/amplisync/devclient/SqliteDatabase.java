@@ -1,5 +1,6 @@
 package com.ampliapps.amplisync.devclient;
 
+import javax.xml.transform.Result;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -395,16 +396,19 @@ public class SqliteDatabase implements AutoCloseable {
     }
 
 
-    public String findFirstValue(String tableName, String columnName, String whereClause) {
-        String sql = "select " + columnName + " from " + tableName + " where " + whereClause + " limit 1";
+    public String findFirstValue(String tableName, String columnName, String whereColumn, Object whereValue) {
+        String sql = "select " + columnName + " from " + tableName + " where " + whereColumn + " = ? limit 1";
 
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql)) {
-            if (!resultSet.next()) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+             statement.setObject(1, whereValue);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getString(columnName);
+                }
+
                 throw new IllegalStateException("No row found in table: " + tableName);
             }
-
-            return resultSet.getString(columnName);
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to find first value in table: " + tableName, e);
         }

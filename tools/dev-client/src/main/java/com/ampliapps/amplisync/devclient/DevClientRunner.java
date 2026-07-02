@@ -56,13 +56,15 @@ public class DevClientRunner {
             String insertedCustomerNameOnB = deviceB.findFirstValue(
                     "demo_customers",
                     "name",
-                    "id = '" + insertedCustomerId + "'"
+                    "id",
+                    insertedCustomerId
             );
 
             String updatedCustomerCityOnB = deviceB.findFirstValue(
                     "demo_customers",
                     "city",
-                    "id = '" + updatedCustomerId + "'"
+                    "id",
+                    updatedCustomerId
             );
 
             System.out.println("Device B inserted customer name: " + insertedCustomerNameOnB);
@@ -72,7 +74,8 @@ public class DevClientRunner {
                 deviceB.findFirstValue(
                         "demo_customers",
                         "city",
-                        "id = '" + deletedCustomerId + "'"
+                        "id",
+                        deletedCustomerId
                 );
 
                 System.out.println("Device B deleted customer still exists: " + deletedCustomerId);
