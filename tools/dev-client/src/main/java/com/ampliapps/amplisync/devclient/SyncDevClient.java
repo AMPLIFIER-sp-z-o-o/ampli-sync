@@ -23,22 +23,29 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 public class SyncDevClient {
     private static final String DEV_AUTH_HEADER = "Bearer dev-local-token";
+    private static final String DEV_USER_ID_HEADER = "Dev-User-Id";
 
     private final String syncBaseUrl;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final String devUserId;
 
     public SyncDevClient(String syncBaseUrl) {
         this.syncBaseUrl = normalizeBaseUrl(syncBaseUrl);
+        this.devUserId = null;
         this.httpClient = HttpClient.newHttpClient();
         this.objectMapper = new ObjectMapper();
+    }
 
+    public SyncDevClient(String syncBaseUrl, String devUserId) {
+        this.syncBaseUrl = normalizeBaseUrl(syncBaseUrl);
+        this.devUserId = devUserId;
+        this.httpClient = HttpClient.newHttpClient();
+        this.objectMapper = new ObjectMapper();
     }
 
     public String healthCheck() {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(syncBaseUrl))
-                .header("Authorization", DEV_AUTH_HEADER)
+        HttpRequest request = requestBuilder(syncBaseUrl)
                 .GET()
                 .build();
 
@@ -79,9 +86,7 @@ public class SyncDevClient {
 
             Path archivePath = outputDirectory.resolve("database.zip");
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(syncBaseUrl + "prepopulate-db/" + deviceId))
-                    .header("Authorization", DEV_AUTH_HEADER)
+            HttpRequest request = requestBuilder(syncBaseUrl + "prepopulate-db/" + deviceId)
                     .GET()
                     .build();
 
@@ -112,9 +117,7 @@ public class SyncDevClient {
             throw new IllegalStateException("Failed to serialize push payload", e);
         }
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(syncBaseUrl + "receive-changes/" + deviceId))
-                .header("Authorization", DEV_AUTH_HEADER)
+        HttpRequest request = requestBuilder(syncBaseUrl + "receive-changes/" + deviceId)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
@@ -142,9 +145,7 @@ public class SyncDevClient {
             throw new IllegalArgumentException("deviceId can't be empty");
         }
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(syncBaseUrl + "sync-compressed/" + tableName + "/" + deviceId))
-                .header("Authorization", DEV_AUTH_HEADER)
+        HttpRequest request = requestBuilder(syncBaseUrl + "sync-compressed/" + tableName + "/" + deviceId)
                 .GET()
                 .build();
 
@@ -172,9 +173,7 @@ public class SyncDevClient {
             return;
         }
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(syncBaseUrl + "commit-sync/" + syncId))
-                .header("Authorization", DEV_AUTH_HEADER)
+        HttpRequest request = requestBuilder(syncBaseUrl + "commit-sync/" + syncId)
                 .GET()
                 .build();
 
@@ -192,7 +191,17 @@ public class SyncDevClient {
         }
     }
 
+    private HttpRequest.Builder requestBuilder(String url) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", DEV_AUTH_HEADER);
 
+        if (devUserId != null && !devUserId.isBlank()) {
+            builder.header(DEV_USER_ID_HEADER, devUserId);
+        }
+
+        return builder;
+    }
 
     private static String unzipGzip(byte[] compressedBytes) throws IOException {
         try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
@@ -238,13 +247,6 @@ public class SyncDevClient {
         }
     }
 
-    /*
-     - call backend health endpoint
-     - download, unpack sqlite database from prepopulate-db
-     - open sqlite database
-     - perform local insert/update/delete operations
-     - build payload from local SQLite, like in rn client
-     - send local changes to the backend
-     - pull changes from the backend
-     */
+
+
 }
