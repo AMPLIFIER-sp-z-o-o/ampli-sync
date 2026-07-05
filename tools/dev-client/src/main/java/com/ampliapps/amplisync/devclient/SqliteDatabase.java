@@ -177,12 +177,12 @@ public class SqliteDatabase implements AutoCloseable {
              ResultSet resultSet = statement.executeQuery(sql)) {
             return toRows(resultSet);
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to read rows: " + tableName);
+            throw new IllegalStateException("Failed to read rows: " + tableName, e);
         }
     }
 
     public List<Map<String, Object>> findRows(String tableName, String whereColumn, Object whereValue) {
-        String sql = "select * from " + tableName + " where " + whereColumn + " = ? limit 1";
+        String sql = "select * from " + tableName + " where " + whereColumn + " = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setObject(1, whereValue);
