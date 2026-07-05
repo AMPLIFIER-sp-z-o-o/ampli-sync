@@ -84,6 +84,16 @@ public class SyncDevice implements AutoCloseable {
         return database.findRow(tableName, whereColumn, whereValue);
     }
 
+    public List<Map<String, Object>> findRows(String tableName) {
+        requireDatabase();
+        return database.findRows(tableName);
+    }
+
+    public List<Map<String, Object>> findRows(String tableName, String whereColumn, Object whereValue) {
+        requireDatabase();
+        return database.findRows(tableName, whereColumn, whereValue);
+    }
+
     public String deviceId() {
         return deviceId;
     }
