@@ -46,37 +46,54 @@ class SyncDeviceRegressionTest {
             deviceA.prepopulate();
             deviceB.prepopulate();
 
+            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
+            SyncDeviceAssertions.assertNoLocalChanges(deviceB);
+
             String insertedCustomerId = UUID.randomUUID().toString();
-            String updatedCustomerId = "0b8e9b8e-0fb5-4f2d-8d4c-3c57e7dc8e47";
-            String deletedCustomerId = "8fb5f9c7-9929-4f87-8fcb-19f2092f0a5d";
+            Map<String, Object> insertedCustomer = DemoCustomers.insertedCustomer(insertedCustomerId);
 
-            deviceA.insertRow("demo_customers", Map.of(
-                    "id", insertedCustomerId,
-                    "name", "Inserted From Device A",
-                    "email", "inserted-device-a@example.com",
-                    "city", "Warsaw"
-            ));
-
-            deviceA.updateRow("demo_customers", Map.of("city", "Wroclaw"), "id", updatedCustomerId);
-            deviceA.deleteRow("demo_customers", "id", deletedCustomerId);
+            deviceA.insertRow(DemoCustomers.TABLE, insertedCustomer);
+            deviceA.updateRow(
+                    DemoCustomers.TABLE,
+                    DemoCustomers.updatedCustomerValues(),
+                    "id",
+                    DemoCustomers.UPDATED_CUSTOMER_ID
+            );
+            deviceA.deleteRow(DemoCustomers.TABLE, "id", DemoCustomers.DELETED_CUSTOMER_ID);
 
             deviceA.push();
-            deviceB.pullTable("demo_customers");
 
-            Map<String, Object> insertedCustomerOnB = deviceB.findRow("demo_customers", "id", insertedCustomerId);
-            assertEquals("Inserted From Device A", insertedCustomerOnB.get("name"));
-            assertEquals("inserted-device-a@example.com", insertedCustomerOnB.get("email"));
-            assertEquals("Warsaw", insertedCustomerOnB.get("city"));
-            assertEquals(1, deviceB.countRows("demo_customers", "id", insertedCustomerId));
+            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
 
-            Map<String, Object> updatedCustomerOnB = deviceB.findRow("demo_customers", "id", updatedCustomerId);
-            assertEquals("Wroclaw", updatedCustomerOnB.get("city"));
-            assertEquals("North Coast Shop", updatedCustomerOnB.get("name"));
+            deviceB.pullTable(DemoCustomers.TABLE);
 
-            assertFalse(deviceB.rowExists("demo_customers", "id", deletedCustomerId));
-            assertEquals(0, deviceB.countRows("demo_customers", "id", deletedCustomerId));
+            SyncDeviceAssertions.assertRowValues(
+                    deviceB,
+                    DemoCustomers.TABLE,
+                    "id",
+                    insertedCustomerId,
+                    insertedCustomer
+            );
 
+            SyncDeviceAssertions.assertRowValues(
+                    deviceB,
+                    DemoCustomers.TABLE,
+                    "id",
+                    DemoCustomers.UPDATED_CUSTOMER_ID,
+                    DemoCustomers.expectedUpdatedCustomer()
+            );
+
+            SyncDeviceAssertions.assertRowDoesNotExist(
+                    deviceB,
+                    DemoCustomers.TABLE,
+                    "id",
+                    DemoCustomers.DELETED_CUSTOMER_ID
+            );
+
+            SyncDeviceAssertions.assertNoLocalChanges(deviceB);
         }
     }
+
+
 
 }
