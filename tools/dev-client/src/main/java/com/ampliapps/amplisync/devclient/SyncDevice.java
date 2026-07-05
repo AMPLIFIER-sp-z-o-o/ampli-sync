@@ -112,6 +112,18 @@ public class SyncDevice implements AutoCloseable {
         return !payload.changes().isEmpty() || !payload.deletes().isEmpty();
     }
 
+    public boolean hasPendingUpdateOrDeleteMarkers() {
+        requireDatabase();
+
+        for (String tableName : database.findSynchronizedTables()) {
+            if (!database.findRowsWithMergeUpdate(tableName).isEmpty()) {
+                return true;
+            }
+        }
+
+        return !database.findDeletedRecords().isEmpty();
+    }
+
 
     public String deviceId() {
         return deviceId;

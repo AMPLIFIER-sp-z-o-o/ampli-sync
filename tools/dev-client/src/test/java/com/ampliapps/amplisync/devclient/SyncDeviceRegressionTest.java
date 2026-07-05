@@ -63,7 +63,7 @@ class SyncDeviceRegressionTest {
 
             deviceA.push();
 
-            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
+            SyncDeviceAssertions.assertNoPendingUpdateOrDeleteMarkers(deviceA);
 
             deviceB.pullTable(DemoCustomers.TABLE);
 

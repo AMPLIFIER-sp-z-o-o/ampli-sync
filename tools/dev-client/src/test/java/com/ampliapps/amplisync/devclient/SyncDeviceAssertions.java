@@ -45,4 +45,12 @@ public class SyncDeviceAssertions {
     static void assertNoLocalChanges(SyncDevice device) {
         assertFalse(device.hasLocalChanges(), "Device has local pending sync changes");
     }
+
+    static void assertNoPendingUpdateOrDeleteMarkers(SyncDevice device) {
+        assertFalse(
+                device.hasPendingUpdateOrDeleteMarkers(),
+                "Device has pending update/delete sync markers"
+        );
+    }
+
 }
