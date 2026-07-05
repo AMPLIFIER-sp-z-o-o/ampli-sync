@@ -194,6 +194,32 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public int countRows(String tableName) {
+        String sql = "select count(*) from " + tableName;
+
+        try (Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql)) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to count rows: " + tableName, e);
+        }
+    }
+
+    public int countRows(String tableName, String whereColumn, Object whereValue) {
+        String sql = "select count(*) from " + tableName + " where " + whereColumn + " = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, whereValue);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Faled to count rows: " + tableName, e);
+        }
+
+    }
+
     private static List<Map<String, Object>> toRows(ResultSet resultSet) throws SQLException {
         List<Map<String, Object>> rows = new ArrayList<>();
         ResultSetMetaData metaData = resultSet.getMetaData();
