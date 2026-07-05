@@ -10,10 +10,11 @@ public class SyncDeviceAssertions {
     static void assertRowValues(
             SyncDevice device,
             String tableName,
-            String id,
+            String whereColumn,
+            Object whereValue,
             Map<String, Object> expectedValues
     ) {
-        Map<String, Object> row = device.findRow(tableName, "id", id);
+        Map<String, Object> row = device.findRow(tableName, whereColumn, whereValue);
 
         for (Map.Entry<String, Object> expectedValue : expectedValues.entrySet()) {
             String columnName = expectedValue.getKey();
@@ -26,10 +27,16 @@ public class SyncDeviceAssertions {
         }
     }
 
-    static void assertRowDoesNotExist(SyncDevice device, String tableName, String id) {
-        assertFalse(device.rowExists(tableName, "id", id));
-        assertEquals(0, device.countRows(tableName, "id", id));
+    static void assertRowDoesNotExist(
+            SyncDevice device,
+            String tableName,
+            String whereColumn,
+            Object whereValue
+    ) {
+        assertFalse(device.rowExists(tableName, whereColumn, whereValue));
+        assertEquals(0, device.countRows(tableName, whereColumn, whereValue));
     }
+
 
     static void assertRowsCount(SyncDevice device, String tableName, int expectedCount) {
         assertEquals(expectedCount, device.countRows(tableName));

@@ -104,6 +104,15 @@ public class SyncDevice implements AutoCloseable {
         return database.countRows(tableName, whereColumn, whereValue);
     }
 
+    public boolean hasLocalChanges() {
+        requireDatabase();
+
+        PayloadBuilder.PushPayload payload = new PayloadBuilder(database).buildPushPayload();
+
+        return !payload.changes().isEmpty() || !payload.deletes().isEmpty();
+    }
+
+
     public String deviceId() {
         return deviceId;
     }
