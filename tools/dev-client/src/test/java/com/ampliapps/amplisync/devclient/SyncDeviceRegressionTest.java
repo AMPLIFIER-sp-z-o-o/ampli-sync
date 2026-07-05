@@ -63,12 +63,19 @@ class SyncDeviceRegressionTest {
             deviceA.push();
             deviceB.pullTable("demo_customers");
 
-            assertEquals("Inserted From Device A",
-                    deviceB.findFirstValue("demo_customers", "name", "id", insertedCustomerId));
+            Map<String, Object> insertedCustomerOnB = deviceB.findRow("demo_customers", "id", insertedCustomerId);
+            assertEquals("Inserted From Device A", insertedCustomerOnB.get("name"));
+            assertEquals("inserted-device-a@example.com", insertedCustomerOnB.get("email"));
+            assertEquals("Warsaw", insertedCustomerOnB.get("city"));
+            assertEquals(1, deviceB.countRows("demo_customers", "id", insertedCustomerId));
 
-            assertEquals("Wroclaw",
-                    deviceB.findFirstValue("demo_customers", "city", "id", updatedCustomerId));
+            Map<String, Object> updatedCustomerOnB = deviceB.findRow("demo_customers", "id", updatedCustomerId);
+            assertEquals("Wroclaw", updatedCustomerOnB.get("city"));
+            assertEquals("North Coast Shop", updatedCustomerOnB.get("name"));
+
             assertFalse(deviceB.rowExists("demo_customers", "id", deletedCustomerId));
+            assertEquals(0, deviceB.countRows("demo_customers", "id", deletedCustomerId));
+
         }
     }
 
