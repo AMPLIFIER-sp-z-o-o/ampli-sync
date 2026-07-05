@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+
 /**
  * Represents one local sync device.
  * Each device has its own id, working directory and local SQLite database.
@@ -76,6 +77,11 @@ public class SyncDevice implements AutoCloseable {
     public boolean rowExists(String tableName, String whereColumn, Object whereValue) {
         requireDatabase();
         return database.rowExists(tableName, whereColumn, whereValue);
+    }
+
+    public Map<String, Object> findRow(String tableName, String whereColumn, Object whereValue) {
+        requireDatabase();
+        return database.findRow(tableName, whereColumn, whereValue);
     }
 
     public String deviceId() {

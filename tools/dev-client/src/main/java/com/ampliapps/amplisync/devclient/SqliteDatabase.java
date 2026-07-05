@@ -151,6 +151,25 @@ public class SqliteDatabase implements AutoCloseable {
         }
     }
 
+    public Map<String, Object> findRow(String tableName, String whereColumn, Object whereValue) {
+        String sql = "select * from " + tableName + " where " + whereColumn + " = ? limit 1";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, whereValue);
+            try(ResultSet resultSet = statement.executeQuery()) {
+                List<Map<String, Object>> rows = toRows(resultSet);
+
+                if (rows.isEmpty()) {
+                    throw new IllegalStateException("No row found in table: " + tableName);
+                }
+
+                return rows.get(0);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find row in table: " + tableName, e);
+        }
+    }
+
     private static List<Map<String, Object>> toRows(ResultSet resultSet) throws SQLException {
         List<Map<String, Object>> rows = new ArrayList<>();
         ResultSetMetaData metaData = resultSet.getMetaData();
