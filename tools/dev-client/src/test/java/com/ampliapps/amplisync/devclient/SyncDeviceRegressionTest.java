@@ -9,8 +9,6 @@ import java.nio.file.Path;
 import java.io.File;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @Testcontainers
 class SyncDeviceRegressionTest {
@@ -50,26 +48,29 @@ class SyncDeviceRegressionTest {
             SyncDeviceAssertions.assertNoLocalChanges(deviceB);
 
             String insertedCustomerId = UUID.randomUUID().toString();
-            Map<String, Object> insertedCustomer = DemoCustomers.insertedCustomer(insertedCustomerId);
+            Map<String, Object> insertedCustomer = DemoCustomersFixture.insertedCustomer(insertedCustomerId);
 
-            deviceA.insertRow(DemoCustomers.TABLE, insertedCustomer);
+            deviceA.insertRow(DemoCustomersFixture.TABLE, insertedCustomer);
             deviceA.updateRow(
-                    DemoCustomers.TABLE,
-                    DemoCustomers.updatedCustomerValues(),
+                    DemoCustomersFixture.TABLE,
+                    DemoCustomersFixture.updatedCustomerValues(),
                     "id",
-                    DemoCustomers.UPDATED_CUSTOMER_ID
+                    DemoCustomersFixture.UPDATED_CUSTOMER_ID
             );
-            deviceA.deleteRow(DemoCustomers.TABLE, "id", DemoCustomers.DELETED_CUSTOMER_ID);
+            deviceA.deleteRow(DemoCustomersFixture.TABLE, "id", DemoCustomersFixture.DELETED_CUSTOMER_ID);
 
             deviceA.push();
 
             SyncDeviceAssertions.assertNoPendingUpdateOrDeleteMarkers(deviceA);
 
-            deviceB.pullTable(DemoCustomers.TABLE);
+            deviceA.pullTable(DemoCustomersFixture.TABLE);
+            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
+
+            deviceB.pullTable(DemoCustomersFixture.TABLE);
 
             SyncDeviceAssertions.assertRowValues(
                     deviceB,
-                    DemoCustomers.TABLE,
+                    DemoCustomersFixture.TABLE,
                     "id",
                     insertedCustomerId,
                     insertedCustomer
@@ -77,23 +78,21 @@ class SyncDeviceRegressionTest {
 
             SyncDeviceAssertions.assertRowValues(
                     deviceB,
-                    DemoCustomers.TABLE,
+                    DemoCustomersFixture.TABLE,
                     "id",
-                    DemoCustomers.UPDATED_CUSTOMER_ID,
-                    DemoCustomers.expectedUpdatedCustomer()
+                    DemoCustomersFixture.UPDATED_CUSTOMER_ID,
+                    DemoCustomersFixture.expectedUpdatedCustomer()
             );
 
             SyncDeviceAssertions.assertRowDoesNotExist(
                     deviceB,
-                    DemoCustomers.TABLE,
+                    DemoCustomersFixture.TABLE,
                     "id",
-                    DemoCustomers.DELETED_CUSTOMER_ID
+                    DemoCustomersFixture.DELETED_CUSTOMER_ID
             );
 
             SyncDeviceAssertions.assertNoLocalChanges(deviceB);
         }
     }
-
-
 
 }

@@ -33,8 +33,19 @@ public class SyncDeviceAssertions {
             String whereColumn,
             Object whereValue
     ) {
-        assertFalse(device.rowExists(tableName, whereColumn, whereValue));
-        assertEquals(0, device.countRows(tableName, whereColumn, whereValue));
+        assertFalse(
+                device.rowExists(tableName, whereColumn, whereValue),
+                "Expected no row in table " + tableName
+                        + " where " + whereColumn + " = " + whereValue
+        );
+
+        assertEquals(
+                0,
+                device.countRows(tableName, whereColumn, whereValue),
+                "Expected zero rows in table " + tableName
+                        + " where " + whereColumn + " = " + whereValue
+        );
+
     }
 
 

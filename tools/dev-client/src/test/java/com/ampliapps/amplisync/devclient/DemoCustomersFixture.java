@@ -2,7 +2,7 @@ package com.ampliapps.amplisync.devclient;
 
 import java.util.Map;
 
-public class DemoCustomers {
+public class DemoCustomersFixture {
     static final String TABLE = "demo_customers";
 
     static final String UPDATED_CUSTOMER_ID = "0b8e9b8e-0fb5-4f2d-8d4c-3c57e7dc8e47";

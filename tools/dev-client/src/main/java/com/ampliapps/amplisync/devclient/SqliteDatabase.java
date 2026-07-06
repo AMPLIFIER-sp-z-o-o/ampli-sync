@@ -1,6 +1,5 @@
 package com.ampliapps.amplisync.devclient;
 
-import javax.xml.transform.Result;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -8,7 +7,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.UUID;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -215,7 +213,7 @@ public class SqliteDatabase implements AutoCloseable {
                 return resultSet.getInt(1);
             }
         } catch (SQLException e) {
-            throw new IllegalStateException("Faled to count rows: " + tableName, e);
+            throw new IllegalStateException("Failed to count rows: " + tableName, e);
         }
 
     }
