@@ -107,10 +107,19 @@ public class SyncDevice implements AutoCloseable {
     public boolean hasLocalChanges() {
         requireDatabase();
 
-        PayloadBuilder.PushPayload payload = new PayloadBuilder(database).buildPushPayload();
+        for (String tableName : database.findSynchronizedTables()) {
+            if (!database.findRowsWithNullRowId(tableName).isEmpty()) {
+                return true;
+            }
 
-        return !payload.changes().isEmpty() || !payload.deletes().isEmpty();
+            if (!database.findRowsWithMergeUpdate(tableName).isEmpty()) {
+                return true;
+            }
+        }
+
+        return !database.findDeletedRecords().isEmpty();
     }
+
 
     public boolean hasPendingUpdateOrDeleteMarkers() {
         requireDatabase();
