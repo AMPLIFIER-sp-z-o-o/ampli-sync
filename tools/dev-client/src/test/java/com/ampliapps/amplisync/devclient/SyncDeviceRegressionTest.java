@@ -41,6 +41,7 @@ class SyncDeviceRegressionTest {
         try (SyncDevice deviceA = new SyncDevice(client, "test-device-a", Path.of("target/test-devices/device-a"));
              SyncDevice deviceB = new SyncDevice(client, "test-device-b", Path.of("target/test-devices/device-b"))) {
 
+            // Arrange: create two local devices for the same dev user.
             deviceA.prepopulate();
             deviceB.prepopulate();
 
@@ -59,6 +60,7 @@ class SyncDeviceRegressionTest {
             );
             deviceA.deleteRow(DemoCustomersFixture.TABLE, "id", DemoCustomersFixture.DELETED_CUSTOMER_ID);
 
+            // Act: push device A changes and pull backend
             deviceA.push();
 
             SyncDeviceAssertions.assertNoPendingUpdateOrDeleteMarkers(deviceA);
@@ -68,6 +70,7 @@ class SyncDeviceRegressionTest {
 
             deviceB.pullTable(DemoCustomersFixture.TABLE);
 
+            // Assert: device B local SQLite has the expected synced state.
             SyncDeviceAssertions.assertRowValues(
                     deviceB,
                     DemoCustomersFixture.TABLE,
@@ -94,5 +97,19 @@ class SyncDeviceRegressionTest {
             SyncDeviceAssertions.assertNoLocalChanges(deviceB);
         }
     }
+
+    @Test
+    void shouldResolveSimultaneousUpdateScenario() {
+        // Arrange: create two local devices for the same dev user.
+
+        // Act: device A updates the record and pushes.
+
+        // Act: device B updates the same record and pushes.
+
+        // Act: both devices pull backend state.
+
+        // Assert: local SQLite state matches expected conflict behavior.
+    }
+
 
 }
