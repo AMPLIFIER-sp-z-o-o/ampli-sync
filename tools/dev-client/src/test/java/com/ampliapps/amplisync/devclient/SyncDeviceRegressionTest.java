@@ -9,8 +9,6 @@ import java.nio.file.Path;
 import java.io.File;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @Testcontainers
 class SyncDeviceRegressionTest {
@@ -43,33 +41,75 @@ class SyncDeviceRegressionTest {
         try (SyncDevice deviceA = new SyncDevice(client, "test-device-a", Path.of("target/test-devices/device-a"));
              SyncDevice deviceB = new SyncDevice(client, "test-device-b", Path.of("target/test-devices/device-b"))) {
 
+            // Arrange: create two local devices for the same dev user.
             deviceA.prepopulate();
             deviceB.prepopulate();
 
+            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
+            SyncDeviceAssertions.assertNoLocalChanges(deviceB);
+
             String insertedCustomerId = UUID.randomUUID().toString();
-            String updatedCustomerId = "0b8e9b8e-0fb5-4f2d-8d4c-3c57e7dc8e47";
-            String deletedCustomerId = "8fb5f9c7-9929-4f87-8fcb-19f2092f0a5d";
+            Map<String, Object> insertedCustomer = DemoCustomersFixture.insertedCustomer(insertedCustomerId);
 
-            deviceA.insertRow("demo_customers", Map.of(
-                    "id", insertedCustomerId,
-                    "name", "Inserted From Device A",
-                    "email", "inserted-device-a@example.com",
-                    "city", "Warsaw"
-            ));
+            deviceA.insertRow(DemoCustomersFixture.TABLE, insertedCustomer);
+            deviceA.updateRow(
+                    DemoCustomersFixture.TABLE,
+                    DemoCustomersFixture.updatedCustomerValues(),
+                    "id",
+                    DemoCustomersFixture.UPDATED_CUSTOMER_ID
+            );
+            deviceA.deleteRow(DemoCustomersFixture.TABLE, "id", DemoCustomersFixture.DELETED_CUSTOMER_ID);
 
-            deviceA.updateRow("demo_customers", Map.of("city", "Wroclaw"), "id", updatedCustomerId);
-            deviceA.deleteRow("demo_customers", "id", deletedCustomerId);
-
+            // Act: push device A changes and pull backend
             deviceA.push();
-            deviceB.pullTable("demo_customers");
 
-            assertEquals("Inserted From Device A",
-                    deviceB.findFirstValue("demo_customers", "name", "id", insertedCustomerId));
+            SyncDeviceAssertions.assertNoPendingUpdateOrDeleteMarkers(deviceA);
 
-            assertEquals("Wroclaw",
-                    deviceB.findFirstValue("demo_customers", "city", "id", updatedCustomerId));
-            assertFalse(deviceB.rowExists("demo_customers", "id", deletedCustomerId));
+            deviceA.pullTable(DemoCustomersFixture.TABLE);
+            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
+
+            deviceB.pullTable(DemoCustomersFixture.TABLE);
+
+            // Assert: device B local SQLite has the expected synced state.
+            SyncDeviceAssertions.assertRowValues(
+                    deviceB,
+                    DemoCustomersFixture.TABLE,
+                    "id",
+                    insertedCustomerId,
+                    insertedCustomer
+            );
+
+            SyncDeviceAssertions.assertRowValues(
+                    deviceB,
+                    DemoCustomersFixture.TABLE,
+                    "id",
+                    DemoCustomersFixture.UPDATED_CUSTOMER_ID,
+                    DemoCustomersFixture.expectedUpdatedCustomer()
+            );
+
+            SyncDeviceAssertions.assertRowDoesNotExist(
+                    deviceB,
+                    DemoCustomersFixture.TABLE,
+                    "id",
+                    DemoCustomersFixture.DELETED_CUSTOMER_ID
+            );
+
+            SyncDeviceAssertions.assertNoLocalChanges(deviceB);
         }
     }
+
+    @Test
+    void shouldResolveSimultaneousUpdateScenario() {
+        // Arrange: create two local devices for the same dev user.
+
+        // Act: device A updates the record and pushes.
+
+        // Act: device B updates the same record and pushes.
+
+        // Act: both devices pull backend state.
+
+        // Assert: local SQLite state matches expected conflict behavior.
+    }
+
 
 }

@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+
 /**
  * Represents one local sync device.
  * Each device has its own id, working directory and local SQLite database.
@@ -77,6 +78,61 @@ public class SyncDevice implements AutoCloseable {
         requireDatabase();
         return database.rowExists(tableName, whereColumn, whereValue);
     }
+
+    public Map<String, Object> findRow(String tableName, String whereColumn, Object whereValue) {
+        requireDatabase();
+        return database.findRow(tableName, whereColumn, whereValue);
+    }
+
+    public List<Map<String, Object>> findRows(String tableName) {
+        requireDatabase();
+        return database.findRows(tableName);
+    }
+
+    public List<Map<String, Object>> findRows(String tableName, String whereColumn, Object whereValue) {
+        requireDatabase();
+        return database.findRows(tableName, whereColumn, whereValue);
+    }
+
+    public int countRows(String tableName) {
+        requireDatabase();
+        return database.countRows(tableName);
+    }
+
+    public int countRows(String tableName, String whereColumn, Object whereValue) {
+        requireDatabase();
+        return database.countRows(tableName, whereColumn, whereValue);
+    }
+
+    public boolean hasLocalChanges() {
+        requireDatabase();
+
+        for (String tableName : database.findSynchronizedTables()) {
+            if (!database.findRowsWithNullRowId(tableName).isEmpty()) {
+                return true;
+            }
+
+            if (!database.findRowsWithMergeUpdate(tableName).isEmpty()) {
+                return true;
+            }
+        }
+
+        return !database.findDeletedRecords().isEmpty();
+    }
+
+
+    public boolean hasPendingUpdateOrDeleteMarkers() {
+        requireDatabase();
+
+        for (String tableName : database.findSynchronizedTables()) {
+            if (!database.findRowsWithMergeUpdate(tableName).isEmpty()) {
+                return true;
+            }
+        }
+
+        return !database.findDeletedRecords().isEmpty();
+    }
+
 
     public String deviceId() {
         return deviceId;

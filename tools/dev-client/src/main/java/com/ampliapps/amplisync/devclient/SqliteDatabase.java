@@ -1,6 +1,5 @@
 package com.ampliapps.amplisync.devclient;
 
-import javax.xml.transform.Result;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -8,7 +7,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.UUID;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -149,6 +147,75 @@ public class SqliteDatabase implements AutoCloseable {
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to find updates for table: " + tableName, e);
         }
+    }
+
+    public Map<String, Object> findRow(String tableName, String whereColumn, Object whereValue) {
+        String sql = "select * from " + tableName + " where " + whereColumn + " = ? limit 1";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, whereValue);
+            try(ResultSet resultSet = statement.executeQuery()) {
+                List<Map<String, Object>> rows = toRows(resultSet);
+
+                if (rows.isEmpty()) {
+                    throw new IllegalStateException("No row found in table: " + tableName);
+                }
+
+                return rows.get(0);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to find row in table: " + tableName, e);
+        }
+    }
+
+    public List<Map<String, Object>> findRows(String tableName) {
+        String sql = "select * from " + tableName;
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql)) {
+            return toRows(resultSet);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to read rows: " + tableName, e);
+        }
+    }
+
+    public List<Map<String, Object>> findRows(String tableName, String whereColumn, Object whereValue) {
+        String sql = "select * from " + tableName + " where " + whereColumn + " = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setObject(1, whereValue);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return toRows(resultSet);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to read rows: " + tableName, e);
+        }
+    }
+
+    public int countRows(String tableName) {
+        String sql = "select count(*) from " + tableName;
+
+        try (Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql)) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to count rows: " + tableName, e);
+        }
+    }
+
+    public int countRows(String tableName, String whereColumn, Object whereValue) {
+        String sql = "select count(*) from " + tableName + " where " + whereColumn + " = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, whereValue);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to count rows: " + tableName, e);
+        }
+
     }
 
     private static List<Map<String, Object>> toRows(ResultSet resultSet) throws SQLException {
