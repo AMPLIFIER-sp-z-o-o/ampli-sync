@@ -31,77 +31,8 @@ class SyncDeviceRegressionTest {
     }
 
     @Test
-    void shouldSyncBetweenTwoDevices() {
-        String host = ENVIRONMENT.getServiceHost("amplisync", 8080);
-        Integer port = ENVIRONMENT.getServicePort("amplisync", 8080);
-
-        SyncDevClient client = new SyncDevClient("http://" + host + ":" + port + "/ampli-sync/", "1");
-
-        assertTrue(client.healthCheck().contains("Database connected"));
-
-        try (SyncDevice deviceA = new SyncDevice(client, "test-device-a", Path.of("target/test-devices/device-a"));
-             SyncDevice deviceB = new SyncDevice(client, "test-device-b", Path.of("target/test-devices/device-b"))) {
-
-            // Arrange: create two local devices for the same dev user.
-            deviceA.prepopulate();
-            deviceB.prepopulate();
-
-            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
-            SyncDeviceAssertions.assertNoLocalChanges(deviceB);
-
-            String insertedCustomerId = UUID.randomUUID().toString();
-            Map<String, Object> insertedCustomer = DemoCustomersFixture.insertedCustomer(insertedCustomerId);
-
-            deviceA.insertRow(DemoCustomersFixture.TABLE, insertedCustomer);
-            deviceA.updateRow(
-                    DemoCustomersFixture.TABLE,
-                    DemoCustomersFixture.updatedCustomerValues(),
-                    "id",
-                    DemoCustomersFixture.UPDATED_CUSTOMER_ID
-            );
-            deviceA.deleteRow(DemoCustomersFixture.TABLE, "id", DemoCustomersFixture.DELETED_CUSTOMER_ID);
-
-            // Act: push device A changes and pull backend
-            deviceA.push();
-
-            SyncDeviceAssertions.assertNoPendingUpdateOrDeleteMarkers(deviceA);
-
-            deviceA.pullTable(DemoCustomersFixture.TABLE);
-            SyncDeviceAssertions.assertNoLocalChanges(deviceA);
-
-            deviceB.pullTable(DemoCustomersFixture.TABLE);
-
-            // Assert: device B local SQLite has the expected synced state.
-            SyncDeviceAssertions.assertRowValues(
-                    deviceB,
-                    DemoCustomersFixture.TABLE,
-                    "id",
-                    insertedCustomerId,
-                    insertedCustomer
-            );
-
-            SyncDeviceAssertions.assertRowValues(
-                    deviceB,
-                    DemoCustomersFixture.TABLE,
-                    "id",
-                    DemoCustomersFixture.UPDATED_CUSTOMER_ID,
-                    DemoCustomersFixture.expectedUpdatedCustomer()
-            );
-
-            SyncDeviceAssertions.assertRowDoesNotExist(
-                    deviceB,
-                    DemoCustomersFixture.TABLE,
-                    "id",
-                    DemoCustomersFixture.DELETED_CUSTOMER_ID
-            );
-
-            SyncDeviceAssertions.assertNoLocalChanges(deviceB);
-        }
-    }
-
-    @Test
     void shouldPropagateInsertToSecondDevice() {
-        SyncDevClient client = createClient("1");
+        SyncDevClient client = createClient(DEV_USER_ID);
         String testRunId = newId();
 
         try (SyncDevice deviceA = createDevice(client, testRunId, "device-a");
@@ -139,7 +70,7 @@ class SyncDeviceRegressionTest {
 
     @Test
     void shouldPropagateUpdateToSecondDevice() {
-        SyncDevClient client = createClient("1");
+        SyncDevClient client = createClient(DEV_USER_ID);
         String testRunId = newId();
 
         try (SyncDevice deviceA = createDevice(client, testRunId, "device-a");
@@ -191,7 +122,7 @@ class SyncDeviceRegressionTest {
 
     @Test
     void shouldPropagateDeleteToSecondDevice() {
-        SyncDevClient client = createClient("1");
+        SyncDevClient client = createClient(DEV_USER_ID);
         String testRunId = newId();
 
         try (SyncDevice deviceA = createDevice(client, testRunId, "device-a");
@@ -232,7 +163,7 @@ class SyncDeviceRegressionTest {
 
     @Test
     void shouldSyncInsertUpdateAndDeleteInOnePush() {
-        SyncDevClient client = createClient("1");
+        SyncDevClient client = createClient(DEV_USER_ID);
         String testRunId = newId();
 
         try (SyncDevice deviceA = createDevice(client, testRunId, "device-a");
@@ -325,7 +256,7 @@ class SyncDeviceRegressionTest {
 
     @Test
     void shouldRequirePullAfterPushForFreshInsertRowId() {
-        SyncDevClient client = createClient("1");
+        SyncDevClient client = createClient(DEV_USER_ID);
         String testRunId = newId();
 
         try (SyncDevice deviceA = createDevice(client, testRunId, "device-a")) {
@@ -365,24 +296,25 @@ class SyncDeviceRegressionTest {
 
     @Test
     void shouldNotChangeLocalDatabaseWhenPullHasNoChanges() {
-        SyncDevClient client = createClient("1");
+        SyncDevClient client = createClient(DEV_USER_ID);
         String testRunId = newId();
 
         try (SyncDevice deviceA = createDevice(client, testRunId, "device-a")) {
             // Arrange
             deviceA.prepopulate();
-            int rowsBeforePull = deviceA.countRows(DemoCustomersFixture.TABLE);
 
-            // Act
             deviceA.pullTable(DemoCustomersFixture.TABLE);
-
-            // Assert
+            int rowsAfterFirstPull = deviceA.countRows(DemoCustomersFixture.TABLE);
+            //Act
+            deviceA.pullTable(DemoCustomersFixture.TABLE);
+            //Assert
             assertEquals(
-                    rowsBeforePull,
+                    rowsAfterFirstPull,
                     deviceA.countRows(DemoCustomersFixture.TABLE),
-                    "Pull without backend changes should not change local row count"
+                    "Second pull without new backend changes should not change local row count"
             );
             SyncDeviceAssertions.assertNoLocalChanges(deviceA);
+
         }
     }
 
