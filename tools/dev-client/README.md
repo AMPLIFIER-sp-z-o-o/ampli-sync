@@ -49,26 +49,44 @@ mvn compile
 
 Run `DevClientRunner`.
 
-The runner creates two local devices:
+## Automated Regression Tests with Testcontainers
 
-`deviceA`
-`deviceB`
+The dev client contains Testcontainers regression tests.
+These tests start the local ampli-sync backend and PostgreSQL from `deploy-dev/docker/docker-compose.test.yml`, then run sync scenarios with backend endpoints.
 
-Example flow:
-```
-deviceA prepopulate-db
-deviceB prepopulate-db
-deviceA insert/update/delete local SQLite records
-deviceA push changes to backend
-deviceB pull changes from backend
-deviceB applies pulled changes locally
-deviceB commit-sync
-```
-Expected result:
-```
-Device B inserted customer name: Inserted From Device A
-Device B updated customer city: Wroclaw
-Device B deleted customer is gone: 'customer-id'
-```
+Before first tests, rebuild the backend WAR used by the Docker setup:
 
-## WiP: Automated Regression Tests with Testcontainers
+```bash
+cd ../..
+./deploy-dev/build-dev.sh
+cd tools/dev-client
+mvn test
+```
+  Manual docker compose up is not required. Testcontainers starts and stops the Docker Compose environment automatically.
+
+### Current coverage:
+
+- insert propagates to second device,
+- update propagates to second device,
+- delete propagates to second device,
+- insert/update/delete in one push,
+- fresh insert requires pull after push, to receive backend rowid,
+- repeated pull without new backend changes does not change local SQLite,
+- two devices of the same dev user synchronize tenant data.
+
+
+### Future coverage
+
+- direct PostgreSQL assertions after push,
+- failed push does not clear local change markers,
+- update/update conflict on the same record,
+- delete/update conflict on the same record,
+- insert then delete before push,
+- multi-table synchronization.
+
+### Notes:
+
+- tests currently use dev user 1
+  - tests create their own rows with UUIDs and should not depend on hardcoded seed row ids,
+  - backend PostgreSQL assertions are not included yet,
+
