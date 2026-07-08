@@ -40,6 +40,7 @@ public class SyncService {
     private final SyncRecordMapper recordMapper = new SyncRecordMapper();
     private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
+    private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
     public CachedRowSet tablesData = null;
     public CachedRowSet tablesDataUpdates = null;
     public CachedRowSet tablesDataDeletes = null;
@@ -90,7 +91,7 @@ public class SyncService {
                 DataObject emptySync = new DataObject();
                 emptySync.SyncId = -1;
                 dataToSync.add(emptySync);
-                SetSyncFinishMarker(syncId.toString(), tableSchema);
+                syncSessionRepository.finishSync(syncId.toString(), tableSchema);
             }
 
         } catch (SQLException e) {
@@ -130,7 +131,7 @@ public class SyncService {
             }
         }
 
-        Integer syncId = SetSyncStartMarker(subscriberId, tableId, schema);
+        Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
 
         syncSessionStore.writeSyncData(syncId.toString(), tablesData, tablesDataUpdates, tablesDataDeletes);
 
@@ -391,57 +392,8 @@ public class SyncService {
         }
 
         UpdateSyncData(Integer.parseInt(syncId), schema, tableName, subscriberId, cachedDataInserts, cachedDataUpdates, cachedDataDeletes);
-        SetSyncFinishMarker(syncId, schema);
+        syncSessionRepository.finishSync(syncId, schema);
     }
-
-    private void SetSyncFinishMarker(String syncId, String schema) {
-        Connection cn = Database.getInstance().GetDBConnection();
-        try {
-            PreparedStatement query = cn.prepareStatement(QUERIES.COMMIT_SYNC_UPDATE(schema));
-            query.setInt(1, Integer.parseInt(syncId));
-            query.execute();
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "SetSyncFinishMarker() " + e.getMessage());
-        } finally {
-            JDBCCloser.close(cn);
-        }
-    }
-
-    private Integer SetSyncStartMarker(String subscriberId, Integer tableId, String schema) {
-        Connection cn = Database.getInstance().GetDBConnection();
-        try {
-            Integer id = 0;
-            Integer affectedRows = 0;
-
-            PreparedStatement query = cn.prepareStatement(QUERIES.START_NEW_SYNC(schema), Statement.RETURN_GENERATED_KEYS);
-            query.setInt(1, Integer.parseInt(subscriberId));
-            query.setString(2, "");
-            query.setInt(3, tableId);
-
-
-            affectedRows = query.executeUpdate();
-
-            if (affectedRows == 0) {
-                Logs.write(Logs.Level.ERROR, "Creating new sync failed, no ID obtained.");
-            }
-
-            try (ResultSet generatedKeys = query.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    id = generatedKeys.getInt(1);
-                } else {
-                    Logs.write(Logs.Level.ERROR, "Creating new sync failed, no ID obtained.");
-                }
-            }
-
-            return id;
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "SetSyncStartMarker() " + e.getMessage());
-        } finally {
-            JDBCCloser.close(cn);
-        }
-        return 0;
-    }
-
     private void UpdateSyncData(Integer syncId, String schema, String tableName, Integer subscriberId, CachedRowSet cachedDataInserts, CachedRowSet cachedDataUpdates, CachedRowSet cachedDataDeletes) {
 
         if (cachedDataInserts != null) {
@@ -520,12 +472,12 @@ public class SyncService {
         Integer syncId = StartNewReception(subscriberId, receivedData, schema);
 
         CommitChangesToDb(receivedData, schema, subscriberId);
-        SetSyncFinishMarker(syncId.toString(), schema);
+        syncSessionRepository.finishSync(syncId.toString(), schema);
         Logs.write(Logs.Level.INFO, "Finished receiving data from subscriber " + subscriberUUID);
     }
 
     private Integer StartNewReception(String subscriberId, ObjectNode data, String schema) {
-        Integer syncId = SetSyncStartMarker(subscriberId, -1, schema);
+        Integer syncId = syncSessionRepository.startSync(subscriberId, -1, schema);
         BufferedWriter writer = null;
 
         File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData");
