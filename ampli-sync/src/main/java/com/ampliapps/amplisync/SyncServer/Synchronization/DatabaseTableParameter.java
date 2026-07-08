@@ -6,5 +6,4 @@ public class DatabaseTableParameter
     public String DbType;
     public Boolean IsNullable;
     public Integer ParameterOrder = 1;
-    public Object ParameterValue = null;
 }
