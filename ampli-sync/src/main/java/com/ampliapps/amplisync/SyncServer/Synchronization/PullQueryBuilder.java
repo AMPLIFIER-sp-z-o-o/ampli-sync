@@ -3,7 +3,7 @@ package com.ampliapps.amplisync.SyncServer.Synchronization;
 import com.ampliapps.amplisync.SQLiteSyncConfig;
 
 public class PullQueryBuilder {
-    public StringBuilder buildInsertChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
+    public StringBuilder buildInsertChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
         StringBuilder query = new StringBuilder();
         String topLimit = "";
         if (SQLiteSyncConfig.PACKAGE_SIZE != null && !SQLiteSyncConfig.PACKAGE_SIZE.isEmpty())
@@ -23,7 +23,7 @@ public class PullQueryBuilder {
         query.append("not exists (select 1 from  " + tableSchema + ".MergeContent_" + tableName + " t where vw.rowid=t.rowid and t.SubscriberId=" + subscriberId + ") ");
         if(!filterVW.startsWith(tableSchema + ".fn_") && !filterVW.startsWith("fn_"))
             if(filterVW_CD.trim().length() > 0)
-                query.append("and vw.uniquename='"+subscirberUUID+"'");
+                query.append("and vw.uniquename='"+subscriberUUID+"'");
         query.append(" " + topLimit + "");
         query.append(") inserts on tb.rowid = inserts.rowid ");
         if(tableName.equalsIgnoreCase("mergeidentity"))
@@ -32,7 +32,7 @@ public class PullQueryBuilder {
         return query;
     }
 
-    public StringBuilder buildUpdateChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
+    public StringBuilder buildUpdateChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD) {
         StringBuilder query = new StringBuilder();
         String topLimit = "";
         if (SQLiteSyncConfig.PACKAGE_SIZE != null && !SQLiteSyncConfig.PACKAGE_SIZE.isEmpty())
@@ -56,14 +56,14 @@ public class PullQueryBuilder {
         return query;
     }
 
-    public StringBuilder buildDeleteChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
+    public StringBuilder buildDeleteChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
         StringBuilder query = new StringBuilder();
         query.append("select  ");
         query.append("m.rowid ");
         query.append("from " + tableSchema + ".mergecontent_" + tableName + " m ");
         if(filterVW_CD.trim().length() > 0 || filterVW.startsWith(tableSchema + ".fn_") || filterVW.startsWith("fn_")) {
             if(tableName.equalsIgnoreCase("mergeidentity"))
-                query.append("left join " + tableSchema + "." + filterVW + " vw on m.rowid=vw.rowid and vw.uniquename='" + subscirberUUID + "' and vw.subscriberid =" + subscriberId + " ");
+                query.append("left join " + tableSchema + "." + filterVW + " vw on m.rowid=vw.rowid and vw.uniquename='" + subscriberUUID + "' and vw.subscriberid =" + subscriberId + " ");
             else
                 query.append("left join " + tableSchema + "." + filterVW + " vw on m.rowid=vw.rowid " + filterVW_CD + " ");
             query.append("where vw.rowid is null  and m.subscriberid=" + subscriberId);

@@ -166,7 +166,7 @@ public class SyncService {
         }
 
         StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
-        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
+        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD);
         StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
 
         SchemaGenerator schemaGenerator = new SchemaGenerator();
