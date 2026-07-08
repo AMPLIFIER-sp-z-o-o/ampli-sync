@@ -39,6 +39,7 @@ public class SyncService {
     private final SQLQueries QUERIES = new SQLQueries();
     private final SyncRecordMapper recordMapper = new SyncRecordMapper();
     private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
+    private final SyncSessionStore syncSessionStore = new SyncSessionStore();
     public CachedRowSet tablesData = null;
     public CachedRowSet tablesDataUpdates = null;
     public CachedRowSet tablesDataDeletes = null;
@@ -131,10 +132,7 @@ public class SyncService {
 
         Integer syncId = SetSyncStartMarker(subscriberId, tableId, schema);
 
-        BinaryWriter binaryWriter = new BinaryWriter();
-        binaryWriter.writeToBinary(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + ".dat", tablesData);
-        binaryWriter.writeToBinary(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_updates.dat", tablesDataUpdates);
-        binaryWriter.writeToBinary(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_deletes.dat", tablesDataDeletes);
+        syncSessionStore.writeSyncData(syncId, tablesData, tablesDataUpdates, tablesDataDeletes);
 
         return syncId;
     }
