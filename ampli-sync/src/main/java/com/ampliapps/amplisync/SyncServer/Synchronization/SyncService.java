@@ -132,7 +132,7 @@ public class SyncService {
 
         Integer syncId = SetSyncStartMarker(subscriberId, tableId, schema);
 
-        syncSessionStore.writeSyncData(syncId, tablesData, tablesDataUpdates, tablesDataDeletes);
+        syncSessionStore.writeSyncData(syncId.toString(), tablesData, tablesDataUpdates, tablesDataDeletes);
 
         return syncId;
     }
@@ -369,10 +369,9 @@ public class SyncService {
     }
 
     public void CommitSync(String syncId, String schema) {
-        BinaryWriter binaryWriter = new BinaryWriter();
-        CachedRowSet cachedDataInserts = (CachedRowSet) binaryWriter.readFromBinaryFile(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + ".dat");
-        CachedRowSet cachedDataUpdates = (CachedRowSet) binaryWriter.readFromBinaryFile(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_updates.dat");
-        CachedRowSet cachedDataDeletes = (CachedRowSet) binaryWriter.readFromBinaryFile(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_deletes.dat");
+        CachedRowSet cachedDataInserts = syncSessionStore.readInserts(syncId);
+        CachedRowSet cachedDataUpdates = syncSessionStore.readUpdates(syncId);
+        CachedRowSet cachedDataDeletes = syncSessionStore.readDeletes(syncId);
 
         String tableName = "";
         int subscriberId = 0;
