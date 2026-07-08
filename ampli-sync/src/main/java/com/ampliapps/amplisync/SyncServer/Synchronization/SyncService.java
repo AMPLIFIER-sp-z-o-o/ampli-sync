@@ -212,7 +212,7 @@ public class SyncService {
                         root.set("inserts", inserts);
 
                     } catch (Exception e) {
-                        Logs.write(Logs.Level.ERROR, "EnumarateChanges() " + e.getMessage());
+                        Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
                     }
                 }
 
@@ -221,7 +221,7 @@ public class SyncService {
             } while (hasResults || cmd.getUpdateCount() != -1);
 
         } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "EnumarateChanges() " + e.getMessage());
+            Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
         }
