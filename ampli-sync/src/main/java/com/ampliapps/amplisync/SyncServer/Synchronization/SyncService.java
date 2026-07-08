@@ -37,6 +37,7 @@ public class SyncService {
     public Integer syncIdForTestPurpose = -1;
     List<DataObject> dataToSync = new ArrayList<>();
     private final SQLQueries QUERIES = new SQLQueries();
+    private final SyncRecordMapper recordMapper = new SyncRecordMapper();
     public CachedRowSet tablesData = null;
     public CachedRowSet tablesDataUpdates = null;
     public CachedRowSet tablesDataDeletes = null;
@@ -204,7 +205,7 @@ public class SyncService {
                                 String colDataType = rsmd.getColumnTypeName(i);
                                 String colValue = tablesData.getString(i);
                                 Boolean wasNull = tablesData.wasNull();
-                                BuildRecord(record, columnName, colDataType, colValue, wasNull);
+                                recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
                             }
                             inserts.add(record);
                             addedRecords++;
@@ -252,7 +253,7 @@ public class SyncService {
                                     String colDataType = rsmd.getColumnTypeName(i);
                                     String colValue = tablesDataUpdates.getString(i);
                                     Boolean wasNull = tablesDataUpdates.wasNull();
-                                    BuildRecord(record, columnName, colDataType, colValue, wasNull);
+                                    recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
                                 }
                                 updates.add(record);
                                 addedRecords++;
@@ -316,33 +317,6 @@ public class SyncService {
             dataToSync.add(tableSync);
     }
 
-    private void BuildRecord(ObjectNode record, String columnName, String colDataType, String colValue, Boolean wasNull) {
-        record.put(columnName, 1);
-        if (colDataType.equalsIgnoreCase("Boolean") || colDataType.equalsIgnoreCase("bool") || colDataType.equalsIgnoreCase("bit")) {
-            if (colValue == null || colValue.isEmpty() || colValue.equalsIgnoreCase("False"))
-                record.put(columnName, 0);
-            else
-                record.put(columnName, 1);
-        } else if (Helpers.TypeConvertionTableIsBLOBType(colDataType)) {
-            if (!wasNull) {
-                byte[] bytesEncoded = Base64.getEncoder().encodeToString(colValue.getBytes()).getBytes();
-                record.put(columnName, new String(bytesEncoded));
-            }
-        } else if (colDataType.equalsIgnoreCase("datetime") || colDataType.equalsIgnoreCase("date")) {
-            DateFormat format = new SimpleDateFormat(SQLiteSyncConfig.DATE_FORMAT);
-            if (colValue != null && !colValue.isEmpty()) {
-                try {
-                    if(colValue.trim().length() == 10)
-                        colValue += " 00:00:00";
-                    Date date = format.parse(colValue);
-                    record.put(columnName, format.format(date));
-                } catch (ParseException e) {
-                    Logs.write(Logs.Level.ERROR, "BuildRecord() " + e.getMessage());
-                }
-            }
-        } else
-            record.put(columnName, colValue);
-    }
 
     public StringBuilder BuildMergeQueryInserts(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
         StringBuilder query = new StringBuilder();
