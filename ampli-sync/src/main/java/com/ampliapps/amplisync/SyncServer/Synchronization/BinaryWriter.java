@@ -1,6 +1,5 @@
 package com.ampliapps.amplisync.SyncServer.Synchronization;
 
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -17,8 +16,7 @@ public class BinaryWriter {
         Boolean append = false;
 
         try {
-            if (!file.exists() || !append) out = new ObjectOutputStream(new FileOutputStream(filename));
-            else out = new AppendableObjectOutputStream(new FileOutputStream(filename, append));
+            out = new ObjectOutputStream(new FileOutputStream(filename));
             out.writeObject(obj);
             out.flush();
         } catch (Exception e) {
@@ -53,15 +51,5 @@ public class BinaryWriter {
             }
         }
         return null;
-    }
-
-    private class AppendableObjectOutputStream extends ObjectOutputStream {
-        public AppendableObjectOutputStream(OutputStream out) throws IOException {
-            super(out);
-        }
-
-        @Override
-        protected void writeStreamHeader() throws IOException {
-        }
     }
 }
