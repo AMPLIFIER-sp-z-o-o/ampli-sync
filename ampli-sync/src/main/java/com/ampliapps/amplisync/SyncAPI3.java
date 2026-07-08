@@ -34,9 +34,14 @@ public class SyncAPI3 {
     @GET
     @Path("/sync-compressed/{tableName}/{deviceUniqueId}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    public Response SyncChangesGZip(@PathParam("tableName") String tableName, @PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
+    public Response SyncChangesGZip(
+            @PathParam("tableName") String tableName,
+            @PathParam("deviceUniqueId") String deviceUniqueId,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String token,
+            @HeaderParam("Dev-User-Id") String devUserId){
+
         try {
-            String subscriberUUID = getSubscriberUUID(token);
+            String subscriberUUID = getSubscriberUUID(token, devUserId);
             String schema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
 
             SyncService sync = new SyncService();
@@ -57,11 +62,15 @@ public class SyncAPI3 {
     @GET
     @Path("/commit-sync/{syncId}")
     @Produces(MediaType.TEXT_PLAIN)
-    public Response SyncGetChanges(@PathParam("syncId") String syncId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
+    public Response SyncGetChanges(
+            @PathParam("syncId") String syncId,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String token,
+            @HeaderParam("Dev-User-Id") String devUserId) {
+
         Response response = Response.ok().build();
         if(syncId.isEmpty() || syncId == null)
             return response;
-        String subscriberUUID = getSubscriberUUID(token);
+        String subscriberUUID = getSubscriberUUID(token, devUserId);
         String schema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
         SyncService sync = new SyncService();
         sync.CommitSync(syncId, schema);
@@ -71,8 +80,12 @@ public class SyncAPI3 {
     @POST
     @Path("/receive-changes/{deviceUniqueId}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response ReceiveChanges(ObjectNode receivedData, @PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
-        String subscriberUUID = getSubscriberUUID(token);
+    public Response ReceiveChanges(
+            ObjectNode receivedData,
+            @PathParam("deviceUniqueId") String deviceUniqueId,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String token,
+            @HeaderParam("Dev-User-Id") String devUserId) {
+        String subscriberUUID = getSubscriberUUID(token, devUserId);
         SyncService sync = new SyncService();
         sync.ReceiveData(receivedData, UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID), subscriberUUID, deviceUniqueId);
         return Response.ok().build();
@@ -81,8 +94,12 @@ public class SyncAPI3 {
     @GET
     @Path("/prepopulate-db/{deviceUniqueId}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    public Response SQLitePrepopulate(@PathParam("deviceUniqueId") String deviceUniqueId, @HeaderParam(HttpHeaders.AUTHORIZATION) String token){
-        String subscriberUUID = getSubscriberUUID(token);
+    public Response SQLitePrepopulate(
+            @PathParam("deviceUniqueId") String deviceUniqueId,
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String token,
+            @HeaderParam("Dev-User-Id") String devUserId) {
+
+        String subscriberUUID = getSubscriberUUID(token, devUserId);
         SQLitePrepopulate sqLitePrepopulate = new SQLitePrepopulate();
         File file = new File(sqLitePrepopulate.PrepopulateDatabase(subscriberUUID, deviceUniqueId));
         return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
@@ -91,15 +108,19 @@ public class SyncAPI3 {
     }
 
     /// Helpers
-    private String getSubscriberUUID(String token) {
+    private String getSubscriberUUID(String token, String devUserId) {
         JwtTokenValidator jwtTokenValidator = new JwtTokenValidator();
         String subscriberUUID = jwtTokenValidator.getUserId(token);
 
-        if ((subscriberUUID == null || subscriberUUID.isBlank())  && "true".equalsIgnoreCase(System.getenv("AUTH_DISABLED"))) {
-            return System.getenv().getOrDefault("DEV_USER_ID", "1");
+        if ("true".equalsIgnoreCase(System.getenv("AUTH_DISABLED"))) {
+            if (devUserId != null && !devUserId.isBlank()) {
+                return devUserId;
+            }
+            if ((subscriberUUID == null || subscriberUUID.isBlank())) {
+                return System.getenv().getOrDefault("DEV_USER_ID", "1");
+            }
         }
         return subscriberUUID;
     }
-
 }
 
