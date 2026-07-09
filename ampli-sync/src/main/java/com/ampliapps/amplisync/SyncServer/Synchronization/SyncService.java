@@ -35,6 +35,11 @@ public class SyncService {
     public Integer syncIdForTestPurpose = -1;
     List<DataObject> dataToSync = new ArrayList<>();
     private final SQLQueries QUERIES = new SQLQueries();
+    private final SyncRecordMapper recordMapper = new SyncRecordMapper();
+    private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
+    private final SyncSessionStore syncSessionStore = new SyncSessionStore();
+    private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
+    private final SQLiteClientQueryBuilder sqLiteClientQueryBuilder = new SQLiteClientQueryBuilder();
     public CachedRowSet tablesData = null;
     public CachedRowSet tablesDataUpdates = null;
     public CachedRowSet tablesDataDeletes = null;
@@ -85,7 +90,7 @@ public class SyncService {
                 DataObject emptySync = new DataObject();
                 emptySync.SyncId = -1;
                 dataToSync.add(emptySync);
-                SetSyncFinishMarker(syncId.toString(), tableSchema);
+                syncSessionRepository.finishSync(syncId.toString(), tableSchema);
             }
 
         } catch (SQLException e) {
@@ -125,12 +130,9 @@ public class SyncService {
             }
         }
 
-        Integer syncId = SetSyncStartMarker(subscriberId, tableId, schema);
+        Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
 
-        BinaryWriter binaryWriter = new BinaryWriter();
-        binaryWriter.writeToBinary(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + ".dat", tablesData);
-        binaryWriter.writeToBinary(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_updates.dat", tablesDataUpdates);
-        binaryWriter.writeToBinary(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_deletes.dat", tablesDataDeletes);
+        syncSessionStore.writeSyncData(syncId.toString(), tablesData, tablesDataUpdates, tablesDataDeletes);
 
         return syncId;
     }
@@ -140,7 +142,7 @@ public class SyncService {
         boolean hasRows = false;
         tableSync.TableName = tableName;
         tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
-        GenerateQueries(tableSync, tableSchema);
+        sqLiteClientQueryBuilder.buildQueries(tableSync, tableSchema);
         String filterVW = tableSchema + "." + tableName;
 
         if (tableSchema == null || tableSchema.isEmpty())
@@ -161,9 +163,9 @@ public class SyncService {
             Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
         }
 
-        StringBuilder queryInserts = BuildMergeQueryInserts(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
-        StringBuilder queryUpdates = BuildMergeQueryUpdates(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
-        StringBuilder queryDeletes = BuildMergeQueryDeletes(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
+        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
+        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD);
+        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
 
         SchemaGenerator schemaGenerator = new SchemaGenerator();
         Connection cn = Database.getInstance().GetDBConnection();
@@ -202,7 +204,7 @@ public class SyncService {
                                 String colDataType = rsmd.getColumnTypeName(i);
                                 String colValue = tablesData.getString(i);
                                 Boolean wasNull = tablesData.wasNull();
-                                BuildRecord(record, columnName, colDataType, colValue, wasNull);
+                                recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
                             }
                             inserts.add(record);
                             addedRecords++;
@@ -250,7 +252,7 @@ public class SyncService {
                                     String colDataType = rsmd.getColumnTypeName(i);
                                     String colValue = tablesDataUpdates.getString(i);
                                     Boolean wasNull = tablesDataUpdates.wasNull();
-                                    BuildRecord(record, columnName, colDataType, colValue, wasNull);
+                                    recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
                                 }
                                 updates.add(record);
                                 addedRecords++;
@@ -314,164 +316,10 @@ public class SyncService {
             dataToSync.add(tableSync);
     }
 
-    private void BuildRecord(ObjectNode record, String columnName, String colDataType, String colValue, Boolean wasNull) {
-        record.put(columnName, 1);
-        if (colDataType.equalsIgnoreCase("Boolean") || colDataType.equalsIgnoreCase("bool") || colDataType.equalsIgnoreCase("bit")) {
-            if (colValue == null || colValue.isEmpty() || colValue.equalsIgnoreCase("False"))
-                record.put(columnName, 0);
-            else
-                record.put(columnName, 1);
-        } else if (Helpers.TypeConvertionTableIsBLOBType(colDataType)) {
-            if (!wasNull) {
-                byte[] bytesEncoded = Base64.getEncoder().encodeToString(colValue.getBytes()).getBytes();
-                record.put(columnName, new String(bytesEncoded));
-            }
-        } else if (colDataType.equalsIgnoreCase("datetime") || colDataType.equalsIgnoreCase("date")) {
-            DateFormat format = new SimpleDateFormat(SQLiteSyncConfig.DATE_FORMAT);
-            if (colValue != null && !colValue.isEmpty()) {
-                try {
-                    if(colValue.trim().length() == 10)
-                        colValue += " 00:00:00";
-                    Date date = format.parse(colValue);
-                    record.put(columnName, format.format(date));
-                } catch (ParseException e) {
-                    Logs.write(Logs.Level.ERROR, "BuildRecord() " + e.getMessage());
-                }
-            }
-        } else
-            record.put(columnName, colValue);
-    }
-
-    public StringBuilder BuildMergeQueryInserts(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
-        StringBuilder query = new StringBuilder();
-        String topLimit = "";
-        if (SQLiteSyncConfig.PACKAGE_SIZE != null && !SQLiteSyncConfig.PACKAGE_SIZE.isEmpty())
-            topLimit = "LIMIT " + SQLiteSyncConfig.PACKAGE_SIZE;
-
-        query.append("select distinct ");
-        query.append("tb.*");
-        query.append("from " + tableSchema + "." + tableName + " tb ");
-        query.append("join (");
-        query.append("select vw.rowid ");
-        if(filterVW_CD.trim().length() > 0 || filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
-            query.append("from " + tableSchema + "." + filterVW + " vw ");
-        } else {
-            query.append("from " + tableSchema + "." + tableName + " vw ");
-        }
-        query.append("where ");
-        query.append("not exists (select 1 from  " + tableSchema + ".MergeContent_" + tableName + " t where vw.rowid=t.rowid and t.SubscriberId=" + subscriberId + ") ");
-        if(!filterVW.startsWith(tableSchema + ".fn_") && !filterVW.startsWith("fn_"))
-            if(filterVW_CD.trim().length() > 0)
-                query.append("and vw.uniquename='"+subscirberUUID+"'");
-        query.append(" " + topLimit + "");
-        query.append(") inserts on tb.rowid = inserts.rowid ");
-        if(tableName.equalsIgnoreCase("mergeidentity"))
-            query.append("and tb.subscriberid =" + subscriberId);
-
-        return query;
-    }
-
-    public StringBuilder BuildMergeQueryUpdates(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
-        StringBuilder query = new StringBuilder();
-        String topLimit = "";
-        if (SQLiteSyncConfig.PACKAGE_SIZE != null && !SQLiteSyncConfig.PACKAGE_SIZE.isEmpty())
-            topLimit = "limit " + SQLiteSyncConfig.PACKAGE_SIZE;
-
-        query.append("select distinct ");
-        query.append("tb.*");
-        query.append("from " + tableSchema + "." + tableName + " tb ");
-        if(filterVW_CD.trim().length() > 0 || filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
-            query.append("join " + tableSchema + "." + filterVW + " vw on tb.rowid=vw.rowid ");
-            query.append("join " + tableSchema + ".mergecontent_" + tableName + " t on vw.rowid=t.rowid ");
-        } else {
-            query.append("join " + tableSchema + ".mergecontent_" + tableName + " t on tb.rowid=t.rowid ");
-        }
-
-        query.append("where t.record_has_changed=true and t.SubscriberId=" + subscriberId + " " + filterVW_CD + " ");
-        if(tableName.equalsIgnoreCase("mergeidentity"))
-            query.append(" and tb.subscriberid =" + subscriberId);
-        query.append(" " + topLimit + ";");
-
-        return query;
-    }
-
-    public StringBuilder BuildMergeQueryDeletes(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscirberUUID) {
-        StringBuilder query = new StringBuilder();
-        query.append("select  ");
-        query.append("m.rowid ");
-        query.append("from " + tableSchema + ".mergecontent_" + tableName + " m ");
-        if(filterVW_CD.trim().length() > 0 || filterVW.startsWith(tableSchema + ".fn_") || filterVW.startsWith("fn_")) {
-            if(tableName.equalsIgnoreCase("mergeidentity"))
-                query.append("left join " + tableSchema + "." + filterVW + " vw on m.rowid=vw.rowid and vw.uniquename='" + subscirberUUID + "' and vw.subscriberid =" + subscriberId + " ");
-            else
-                query.append("left join " + tableSchema + "." + filterVW + " vw on m.rowid=vw.rowid " + filterVW_CD + " ");
-            query.append("where vw.rowid is null  and m.subscriberid=" + subscriberId);
-
-        } else {
-            query.append("left join " + tableSchema + "." + tableName + " vw on m.rowid=vw.rowid ");
-            query.append("where vw.rowid is null and m.subscriberid=" + subscriberId );
-        }
-
-        return query;
-    }
-
-    private void GenerateQueries(DataObject tableSync, String tableSchema) {
-        String tableNameClear = tableSync.TableName;
-
-        DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableNameClear, tableSchema);
-
-        StringBuilder insertStatement = new StringBuilder();
-        StringBuilder updateStatment = new StringBuilder();
-
-        insertStatement.append("insert or replace into " + tableNameClear + " (");
-        for (DatabaseTableColumn col : table.Columns)
-            if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
-                insertStatement.append("[" + col.Name + "]");
-                insertStatement.append(",");
-            }
-
-        tableSync.QueryInsert = insertStatement.substring(0, insertStatement.toString().length() - 1) + ") values (";
-        insertStatement = new StringBuilder();
-        for (DatabaseTableColumn col : table.Columns)
-            if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
-                insertStatement.append("?");
-                insertStatement.append(",");
-            }
-        tableSync.QueryInsert += insertStatement.substring(0, insertStatement.toString().length() - 1) + ");";
-
-        updateStatment.append("update " + tableNameClear + " set ");
-        for (DatabaseTableColumn col : table.Columns)
-            if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
-                if (!col.IsInPrimaryKey) {
-                    updateStatment.append("[" + col.Name + "]");
-                    updateStatment.append("=?,");
-                }
-            }
-
-        updateStatment = new StringBuilder(updateStatment.substring(0, updateStatment.toString().length() - 1));
-
-        updateStatment.append(" where ");
-
-        if (table.PrimaryKeyColumns.size() > 0) {
-            for (String pk : table.PrimaryKeyColumns) {
-                updateStatment.append(pk);
-                updateStatment.append("=? and ");
-            }
-
-            tableSync.QueryUpdate = updateStatment.substring(0, updateStatment.toString().length() - 5) + ";";
-        } else {
-            updateStatment.append(SQLQueries.GET_ROWID_COLUMN_NAME() + "=?");
-            tableSync.QueryUpdate = updateStatment + ";";
-        }
-
-        tableSync.QueryDelete = "delete from " + tableNameClear + " where " + SQLQueries.GET_ROWID_COLUMN_NAME() + "=";
-    }
-
     public void CommitSync(String syncId, String schema) {
-        BinaryWriter binaryWriter = new BinaryWriter();
-        CachedRowSet cachedDataInserts = (CachedRowSet) binaryWriter.readFromBinaryFile(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + ".dat");
-        CachedRowSet cachedDataUpdates = (CachedRowSet) binaryWriter.readFromBinaryFile(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_updates.dat");
-        CachedRowSet cachedDataDeletes = (CachedRowSet) binaryWriter.readFromBinaryFile(SQLiteSyncConfig.WORKING_DIR + "SyncData/" + syncId + "_deletes.dat");
+        CachedRowSet cachedDataInserts = syncSessionStore.readInserts(syncId);
+        CachedRowSet cachedDataUpdates = syncSessionStore.readUpdates(syncId);
+        CachedRowSet cachedDataDeletes = syncSessionStore.readDeletes(syncId);
 
         String tableName = "";
         int subscriberId = 0;
@@ -491,57 +339,8 @@ public class SyncService {
         }
 
         UpdateSyncData(Integer.parseInt(syncId), schema, tableName, subscriberId, cachedDataInserts, cachedDataUpdates, cachedDataDeletes);
-        SetSyncFinishMarker(syncId, schema);
+        syncSessionRepository.finishSync(syncId, schema);
     }
-
-    private void SetSyncFinishMarker(String syncId, String schema) {
-        Connection cn = Database.getInstance().GetDBConnection();
-        try {
-            PreparedStatement query = cn.prepareStatement(QUERIES.COMMIT_SYNC_UPDATE(schema));
-            query.setInt(1, Integer.parseInt(syncId));
-            query.execute();
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "SetSyncFinishMarker() " + e.getMessage());
-        } finally {
-            JDBCCloser.close(cn);
-        }
-    }
-
-    private Integer SetSyncStartMarker(String subscriberId, Integer tableId, String schema) {
-        Connection cn = Database.getInstance().GetDBConnection();
-        try {
-            Integer id = 0;
-            Integer affectedRows = 0;
-
-            PreparedStatement query = cn.prepareStatement(QUERIES.START_NEW_SYNC(schema), Statement.RETURN_GENERATED_KEYS);
-            query.setInt(1, Integer.parseInt(subscriberId));
-            query.setString(2, "");
-            query.setInt(3, tableId);
-
-
-            affectedRows = query.executeUpdate();
-
-            if (affectedRows == 0) {
-                Logs.write(Logs.Level.ERROR, "Creating new sync failed, no ID obtained.");
-            }
-
-            try (ResultSet generatedKeys = query.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    id = generatedKeys.getInt(1);
-                } else {
-                    Logs.write(Logs.Level.ERROR, "Creating new sync failed, no ID obtained.");
-                }
-            }
-
-            return id;
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "SetSyncStartMarker() " + e.getMessage());
-        } finally {
-            JDBCCloser.close(cn);
-        }
-        return 0;
-    }
-
     private void UpdateSyncData(Integer syncId, String schema, String tableName, Integer subscriberId, CachedRowSet cachedDataInserts, CachedRowSet cachedDataUpdates, CachedRowSet cachedDataDeletes) {
 
         if (cachedDataInserts != null) {
@@ -620,12 +419,12 @@ public class SyncService {
         Integer syncId = StartNewReception(subscriberId, receivedData, schema);
 
         CommitChangesToDb(receivedData, schema, subscriberId);
-        SetSyncFinishMarker(syncId.toString(), schema);
+        syncSessionRepository.finishSync(syncId.toString(), schema);
         Logs.write(Logs.Level.INFO, "Finished receiving data from subscriber " + subscriberUUID);
     }
 
     private Integer StartNewReception(String subscriberId, ObjectNode data, String schema) {
-        Integer syncId = SetSyncStartMarker(subscriberId, -1, schema);
+        Integer syncId = syncSessionRepository.startSync(subscriberId, -1, schema);
         BufferedWriter writer = null;
 
         File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData");
