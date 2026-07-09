@@ -156,7 +156,7 @@ public class SQLitePrepopulate {
                 Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + reader.getString("TableName"));
                 tablePackageCount = 1;
                 String tableFilter = reader.getString("TableFilter");
-                EnumarateChanges(reader.getString("TableId"), subscriberId, reader.getString("TableName"), tableSchema, tableFilter, subscriberUUID);
+                EnumerateChanges(reader.getString("TableId"), subscriberId, reader.getString("TableName"), tableSchema, tableFilter, subscriberUUID);
                 Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + reader.getString("TableName") + " done");
             } else
                 Logs.write(Logs.Level.TRACE, "DoSync(). Table " + userSchema + "." + table + " was not found in MergeTablesToSync.");
@@ -169,7 +169,7 @@ public class SQLitePrepopulate {
         }
     }
 
-    private void EnumarateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+    private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         SyncService syncService = new SyncService();
 
         String filterVW = tableSchema + "." + tableName;
@@ -293,7 +293,7 @@ public class SQLitePrepopulate {
                         }
 
                     } catch (Exception e) {
-                        Logs.write(Logs.Level.ERROR, "EnumarateChanges()->record iterate: "+ tableName+". " + e.getMessage());
+                        Logs.write(Logs.Level.ERROR, "EnumerateChanges()->record iterate: "+ tableName+". " + e.getMessage());
                     }
                 }
 
@@ -322,12 +322,12 @@ public class SQLitePrepopulate {
             Integer syncId = syncService.StartNewSync(subscriberId, Integer.parseInt(tableId), tableSchema);
             syncService.CommitSync(syncId.toString(), tableSchema);
         } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "EnumarateChanges(): " + tableName + ". " + e.getMessage());
+            Logs.write(Logs.Level.ERROR, "EnumerateChanges(): " + tableName + ". " + e.getMessage());
         }
         finally {
             JDBCCloser.close(cn);
             if(tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
-                EnumarateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
+                EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
     }

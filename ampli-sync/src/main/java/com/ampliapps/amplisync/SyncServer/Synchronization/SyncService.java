@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Stopwatch;
-import com.google.common.cache.LoadingCache;
 import org.postgresql.util.PGobject;
 
 import javax.sql.rowset.CachedRowSet;
@@ -33,7 +32,6 @@ import java.util.regex.Pattern;
 
 public class SyncService {
 
-    private static LoadingCache<String, String> tableSchemaCache = null;
     public Integer syncIdForTestPurpose = -1;
     List<DataObject> dataToSync = new ArrayList<>();
     private final SQLQueries QUERIES = new SQLQueries();
@@ -214,7 +212,7 @@ public class SyncService {
                         root.set("inserts", inserts);
 
                     } catch (Exception e) {
-                        Logs.write(Logs.Level.ERROR, "EnumarateChanges() " + e.getMessage());
+                        Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
                     }
                 }
 
@@ -223,7 +221,7 @@ public class SyncService {
             } while (hasResults || cmd.getUpdateCount() != -1);
 
         } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "EnumarateChanges() " + e.getMessage());
+            Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
         }
