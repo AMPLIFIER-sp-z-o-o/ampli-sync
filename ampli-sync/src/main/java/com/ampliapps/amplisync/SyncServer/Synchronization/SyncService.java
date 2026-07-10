@@ -40,6 +40,7 @@ public class SyncService {
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
     private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
     private final SQLiteClientQueryBuilder sqLiteClientQueryBuilder = new SQLiteClientQueryBuilder();
+    private final PullChangeEnumerator pullChangeEnumerator = new PullChangeEnumerator();
     public CachedRowSet tablesData = null;
     public CachedRowSet tablesDataUpdates = null;
     public CachedRowSet tablesDataDeletes = null;
@@ -168,7 +169,7 @@ public class SyncService {
         StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
 
         SchemaGenerator schemaGenerator = new SchemaGenerator();
-        Connection cn = Database.getInstance().GetDBConnection();
+
         DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableName, tableSchema);
         if (!tableName.equalsIgnoreCase("mergeidentity")) {
             tableSync.TriggerInsert =  "select 1;";
@@ -179,141 +180,18 @@ public class SyncService {
             tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
         }
 
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode root = mapper.createObjectNode();
+        PullChangeSet changeSet = pullChangeEnumerator.enumerate(queryInserts, queryUpdates, queryDeletes);
 
+        tablesData = changeSet.Inserts;
+        tablesDataUpdates = changeSet.Updates;
+        tablesDataDeletes = changeSet.Deletes;
 
-        int addedRecords = 0; //this is equivalent of limit on db
-        try {
-            Statement cmd = cn.createStatement();
-            Logs.write(Logs.Level.TRACE, queryInserts.toString());
-            boolean hasResults = cmd.execute(queryInserts.toString());
-            do {
-                if (hasResults) {
-                    try (ResultSet rs = cmd.getResultSet()) {
-                        tablesData = RowSetProvider.newFactory().createCachedRowSet();
-                        tablesData.populate(rs);
-                        tablesData.beforeFirst();
-                        ArrayNode inserts = mapper.createArrayNode();
-                        while (tablesData.next()) {
-                            hasRows = true;
-                            ObjectNode record = mapper.createObjectNode();
-                            ResultSetMetaData rsmd = tablesData.getMetaData();
-                            for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                                String columnName = rsmd.getColumnName(i);
-                                String colDataType = rsmd.getColumnTypeName(i);
-                                String colValue = tablesData.getString(i);
-                                Boolean wasNull = tablesData.wasNull();
-                                recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
-                            }
-                            inserts.add(record);
-                            addedRecords++;
-                            if(addedRecords == Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE))
-                                break;
-                        }
-                        root.set("inserts", inserts);
+        tableSync.RowsCount = changeSet.RowsCount.toString();
+        tableSync.Records = changeSet.Records;
 
-                    } catch (Exception e) {
-                        Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
-                    }
-                }
-
-                hasResults = cmd.getMoreResults();
-
-            } while (hasResults || cmd.getUpdateCount() != -1);
-
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
-        } finally {
-            JDBCCloser.close(cn);
-        }
-
-        if(addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE)) {
-            cn = Database.getInstance().GetDBConnection();
-            //updates
-            try {
-
-                Statement cmd = cn.createStatement();
-                Logs.write(Logs.Level.TRACE, queryUpdates.toString());
-                boolean hasResults = cmd.execute(queryUpdates.toString());
-                do {
-                    if (hasResults) {
-                        try (ResultSet rs = cmd.getResultSet()) {
-                            tablesDataUpdates = RowSetProvider.newFactory().createCachedRowSet();
-                            tablesDataUpdates.populate(rs);
-                            tablesDataUpdates.beforeFirst();
-                            ArrayNode updates = mapper.createArrayNode();
-                            while (tablesDataUpdates.next()) {
-                                ObjectNode record = mapper.createObjectNode();
-                                ResultSetMetaData rsmd = tablesDataUpdates.getMetaData();
-                                hasRows = true;
-                                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                                    String columnName = rsmd.getColumnName(i);
-                                    String colDataType = rsmd.getColumnTypeName(i);
-                                    String colValue = tablesDataUpdates.getString(i);
-                                    Boolean wasNull = tablesDataUpdates.wasNull();
-                                    recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
-                                }
-                                updates.add(record);
-                                addedRecords++;
-                            }
-                            root.set("updates", updates);
-                        } catch (Exception e) {
-                            Logs.write(Logs.Level.ERROR, "EnumarateChanges() updates " + e.getMessage());
-                        }
-                    }
-
-                    hasResults = cmd.getMoreResults();
-
-                } while (hasResults || cmd.getUpdateCount() != -1);
-
-            } catch (SQLException e) {
-                Logs.write(Logs.Level.ERROR, "EnumarateChanges() updates " + e.getMessage());
-            } finally {
-                JDBCCloser.close(cn);
-            }
-        }
-
-        if(addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE)) {
-            cn = Database.getInstance().GetDBConnection();
-            //deletes
-            try {
-                Statement cmd = cn.createStatement();
-                Logs.write(Logs.Level.TRACE, queryDeletes.toString());
-                boolean hasResults = cmd.execute(queryDeletes.toString());
-                do {
-                    if (hasResults) {
-                        try (ResultSet rs = cmd.getResultSet()) {
-                            tablesDataDeletes = RowSetProvider.newFactory().createCachedRowSet();
-                            tablesDataDeletes.populate(rs);
-                            tablesDataDeletes.beforeFirst();
-                            ArrayNode deletes = mapper.createArrayNode();
-                            while (tablesDataDeletes.next()) {
-                                hasRows = true;
-                                deletes.add(mapper.createObjectNode().put("rowid", tablesDataDeletes.getString(1)));
-                                addedRecords++;
-                            }
-                            root.set("deletes", deletes);
-                        } catch (Exception e) {
-                            Logs.write(Logs.Level.ERROR, "EnumarateChanges() deletes " + e.getMessage());
-                        }
-                    }
-
-                    hasResults = cmd.getMoreResults();
-
-                } while (hasResults || cmd.getUpdateCount() != -1);
-
-            } catch (SQLException e) {
-                Logs.write(Logs.Level.ERROR, "EnumarateChanges() deletes " + e.getMessage());
-            } finally {
-                JDBCCloser.close(cn);
-            }
-        }
-
-        tableSync.RowsCount = Integer.toString(addedRecords);
-        tableSync.Records = root;
-        if (hasRows)
+        if (changeSet.HasRows)
             dataToSync.add(tableSync);
+
     }
 
     public void CommitSync(String syncId, String schema) {
