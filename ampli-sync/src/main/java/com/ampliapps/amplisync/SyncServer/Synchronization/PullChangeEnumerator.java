@@ -13,6 +13,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import javax.sql.rowset.CachedRowSet;
+
 
 public class PullChangeEnumerator {
     private final SyncRecordMapper recordMapper = new SyncRecordMapper();
@@ -39,17 +41,7 @@ public class PullChangeEnumerator {
                         ArrayNode inserts = mapper.createArrayNode();
                         while (changeSet.Inserts.next()) {
                             changeSet.HasRows = true;
-                            ObjectNode record = mapper.createObjectNode();
-                            ResultSetMetaData rsmd = changeSet.Inserts.getMetaData();
-
-                            for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                                String columnName = rsmd.getColumnName(i);
-                                String colDataType = rsmd.getColumnTypeName(i);
-                                String colValue = changeSet.Inserts.getString(i);
-                                Boolean wasNull = changeSet.Inserts.wasNull();
-
-                                recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
-                            }
+                            ObjectNode record = mapCurrentRecord(changeSet.Inserts, mapper);
 
                             inserts.add(record);
                             addedRecords++;
@@ -87,18 +79,8 @@ public class PullChangeEnumerator {
 
                             ArrayNode updates = mapper.createArrayNode();
                             while (changeSet.Updates.next()) {
-                                ObjectNode record = mapper.createObjectNode();
-                                ResultSetMetaData rsmd = changeSet.Updates.getMetaData();
                                 changeSet.HasRows = true;
-
-                                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                                    String columnName = rsmd.getColumnName(i);
-                                    String colDataType = rsmd.getColumnTypeName(i);
-                                    String colValue = changeSet.Updates.getString(i);
-                                    Boolean wasNull = changeSet.Updates.wasNull();
-
-                                    recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
-                                }
+                                ObjectNode record = mapCurrentRecord(changeSet.Updates, mapper);
 
                                 updates.add(record);
                                 addedRecords++;
@@ -158,4 +140,21 @@ public class PullChangeEnumerator {
         changeSet.Records = root;
         return changeSet;
     }
+
+    private ObjectNode mapCurrentRecord(CachedRowSet rowSet, ObjectMapper mapper) throws SQLException {
+        ObjectNode record = mapper.createObjectNode();
+        ResultSetMetaData rsmd = rowSet.getMetaData();
+
+        for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+            String columnName = rsmd.getColumnName(i);
+            String colDataType = rsmd.getColumnTypeName(i);
+            String colValue = rowSet.getString(i);
+            Boolean wasNull = rowSet.wasNull();
+
+            recordMapper.writeColumn(record, columnName, colDataType, colValue, wasNull);
+        }
+
+        return record;
+    }
+
 }
