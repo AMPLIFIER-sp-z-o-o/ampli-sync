@@ -25,46 +25,12 @@ public class PullChangeEnumerator {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode root = mapper.createObjectNode();
 
-        int addedRecords = 0;
+        int addedRecords = enumerateInserts(changeSet, root, mapper, queryInserts);
 
-        Connection cn = Database.getInstance().GetDBConnection();
-        try {
-            Statement cmd = cn.createStatement();
-            Logs.write(Logs.Level.TRACE, queryInserts.toString());
-            boolean hasResults = cmd.execute(queryInserts.toString());
-            do {
-                if (hasResults) {
-                    try (ResultSet rs = cmd.getResultSet()) {
-                        changeSet.Inserts = cacheResultSet(rs);
-
-                        ArrayNode inserts = mapper.createArrayNode();
-                        while (changeSet.Inserts.next()) {
-                            changeSet.HasRows = true;
-                            ObjectNode record = mapCurrentRecord(changeSet.Inserts, mapper);
-
-                            inserts.add(record);
-                            addedRecords++;
-
-                            if (!hasCapacity(addedRecords))
-                                break;
-                        }
-
-                        root.set("inserts", inserts);
-                    } catch (Exception e) {
-                        Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
-                    }
-                }
-
-                hasResults = cmd.getMoreResults();
-            } while (hasResults || cmd.getUpdateCount() != -1);
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
-        } finally {
-            JDBCCloser.close(cn);
-        }
 
         if (hasCapacity(addedRecords)) {
-            cn = Database.getInstance().GetDBConnection();
+            Connection cn = Database.getInstance().GetDBConnection();
+
             try {
                 Statement cmd = cn.createStatement();
                 Logs.write(Logs.Level.TRACE, queryUpdates.toString());
@@ -99,7 +65,8 @@ public class PullChangeEnumerator {
         }
 
         if (hasCapacity(addedRecords)) {
-            cn = Database.getInstance().GetDBConnection();
+            Connection cn = Database.getInstance().GetDBConnection();
+
             try {
                 Statement cmd = cn.createStatement();
                 Logs.write(Logs.Level.TRACE, queryDeletes.toString());
@@ -150,6 +117,48 @@ public class PullChangeEnumerator {
         }
 
         return record;
+    }
+
+    private int enumerateInserts(PullChangeSet changeSet, ObjectNode root, ObjectMapper mapper, StringBuilder queryInserts) {
+        int addedRecords = 0;
+
+        Connection cn = Database.getInstance().GetDBConnection();
+        try {
+            Statement cmd = cn.createStatement();
+            Logs.write(Logs.Level.TRACE, queryInserts.toString());
+            boolean hasResults = cmd.execute(queryInserts.toString());
+            do {
+                if (hasResults) {
+                    try (ResultSet rs = cmd.getResultSet()) {
+                        changeSet.Inserts = cacheResultSet(rs);
+
+                        ArrayNode inserts = mapper.createArrayNode();
+                        while (changeSet.Inserts.next()) {
+                            changeSet.HasRows = true;
+                            ObjectNode record = mapCurrentRecord(changeSet.Inserts, mapper);
+
+                            inserts.add(record);
+                            addedRecords++;
+
+                            if (!hasCapacity(addedRecords))
+                                break;
+                        }
+
+                        root.set("inserts", inserts);
+                    } catch (Exception e) {
+                        Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
+                    }
+                }
+
+                hasResults = cmd.getMoreResults();
+            } while (hasResults || cmd.getUpdateCount() != -1);
+        } catch (SQLException e) {
+            Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
+        } finally {
+            JDBCCloser.close(cn);
+        }
+
+        return addedRecords;
     }
 
     private boolean hasCapacity(int addedRecords) {
