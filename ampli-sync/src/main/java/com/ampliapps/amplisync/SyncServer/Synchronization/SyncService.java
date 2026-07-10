@@ -138,9 +138,25 @@ public class SyncService {
         return syncId;
     }
 
+    private void AddSyncTriggers(DataObject tableSync, String tableName, String tableSchema) {
+        if (tableName.equalsIgnoreCase("mergeidentity")) {
+            return;
+        }
+
+        SchemaGenerator schemaGenerator = new SchemaGenerator();
+        DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableName, tableSchema);
+
+        tableSync.TriggerInsert = "select 1;";
+        tableSync.TriggerInsertDrop = "select 1;";
+        tableSync.TriggerUpdate = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
+        tableSync.TriggerUpdateDrop = "drop trigger if exists \"trmergeupdate_" + tableName + "\"";
+        tableSync.TriggerDelete = schemaGenerator.CreateDeleteTrigger(table);
+        tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
+    }
+
+
     private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         DataObject tableSync = new DataObject();
-        boolean hasRows = false;
         tableSync.TableName = tableName;
         tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
         sqLiteClientQueryBuilder.buildQueries(tableSync, tableSchema);
@@ -168,17 +184,7 @@ public class SyncService {
         StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD);
         StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
 
-        SchemaGenerator schemaGenerator = new SchemaGenerator();
-
-        DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableName, tableSchema);
-        if (!tableName.equalsIgnoreCase("mergeidentity")) {
-            tableSync.TriggerInsert =  "select 1;";
-            tableSync.TriggerInsertDrop = "select 1;";
-            tableSync.TriggerUpdate = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
-            tableSync.TriggerUpdateDrop = "drop trigger if exists \"trmergeupdate_" + tableName + "\"";
-            tableSync.TriggerDelete = schemaGenerator.CreateDeleteTrigger(table);
-            tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
-        }
+        AddSyncTriggers(tableSync, tableName, tableSchema);
 
         PullChangeSet changeSet = pullChangeEnumerator.enumerate(queryInserts, queryUpdates, queryDeletes);
 
