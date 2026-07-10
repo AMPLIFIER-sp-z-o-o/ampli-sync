@@ -7,13 +7,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetProvider;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import javax.sql.rowset.CachedRowSet;
+
 
 
 public class PullChangeEnumerator {
@@ -34,9 +35,7 @@ public class PullChangeEnumerator {
             do {
                 if (hasResults) {
                     try (ResultSet rs = cmd.getResultSet()) {
-                        changeSet.Inserts = RowSetProvider.newFactory().createCachedRowSet();
-                        changeSet.Inserts.populate(rs);
-                        changeSet.Inserts.beforeFirst();
+                        changeSet.Inserts = cacheResultSet(rs);
 
                         ArrayNode inserts = mapper.createArrayNode();
                         while (changeSet.Inserts.next()) {
@@ -73,9 +72,7 @@ public class PullChangeEnumerator {
                 do {
                     if (hasResults) {
                         try (ResultSet rs = cmd.getResultSet()) {
-                            changeSet.Updates = RowSetProvider.newFactory().createCachedRowSet();
-                            changeSet.Updates.populate(rs);
-                            changeSet.Updates.beforeFirst();
+                            changeSet.Updates = cacheResultSet(rs);
 
                             ArrayNode updates = mapper.createArrayNode();
                             while (changeSet.Updates.next()) {
@@ -110,9 +107,7 @@ public class PullChangeEnumerator {
                 do {
                     if (hasResults) {
                         try (ResultSet rs = cmd.getResultSet()) {
-                            changeSet.Deletes = RowSetProvider.newFactory().createCachedRowSet();
-                            changeSet.Deletes.populate(rs);
-                            changeSet.Deletes.beforeFirst();
+                            changeSet.Deletes = cacheResultSet(rs);
 
                             ArrayNode deletes = mapper.createArrayNode();
                             while (changeSet.Deletes.next()) {
@@ -161,4 +156,10 @@ public class PullChangeEnumerator {
         return addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE);
     }
 
+    private CachedRowSet cacheResultSet(ResultSet rs) throws SQLException {
+        CachedRowSet rowSet = RowSetProvider.newFactory().createCachedRowSet();
+        rowSet.populate(rs);
+        rowSet.beforeFirst();
+        return rowSet;
+    }
 }
