@@ -46,7 +46,7 @@ public class PullChangeEnumerator {
                             inserts.add(record);
                             addedRecords++;
 
-                            if (addedRecords == Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE))
+                            if (!hasCapacity(addedRecords))
                                 break;
                         }
 
@@ -64,7 +64,7 @@ public class PullChangeEnumerator {
             JDBCCloser.close(cn);
         }
 
-        if (addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE)) {
+        if (hasCapacity(addedRecords)) {
             cn = Database.getInstance().GetDBConnection();
             try {
                 Statement cmd = cn.createStatement();
@@ -101,7 +101,7 @@ public class PullChangeEnumerator {
             }
         }
 
-        if (addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE)) {
+        if (hasCapacity(addedRecords)) {
             cn = Database.getInstance().GetDBConnection();
             try {
                 Statement cmd = cn.createStatement();
@@ -155,6 +155,10 @@ public class PullChangeEnumerator {
         }
 
         return record;
+    }
+
+    private boolean hasCapacity(int addedRecords) {
+        return addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE);
     }
 
 }
