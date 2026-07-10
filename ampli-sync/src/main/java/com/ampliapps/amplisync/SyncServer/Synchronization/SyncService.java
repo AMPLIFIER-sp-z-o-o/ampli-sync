@@ -154,35 +154,46 @@ public class SyncService {
         tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
     }
 
+    private PullFilter BuildPullFilter(String tableSchema, String tableName, String tableFilter, String subscriberUUID, String subscriberId) {
+        PullFilter pullFilter = new PullFilter();
+
+        pullFilter.View = tableSchema + "." + tableName;
+
+        if (tableSchema == null || tableSchema.isEmpty())
+            pullFilter.View = tableName;
+
+        pullFilter.ChangeDetectionCondition = " ";
+
+        if (tableFilter != null && tableFilter.trim().length() > 0) {
+            pullFilter.View = tableFilter;
+            if (pullFilter.View.startsWith("public.fn_") || pullFilter.View.startsWith("fn_")) {
+                pullFilter.View = pullFilter.View.replace("@incomming_uniquename", subscriberUUID);
+                pullFilter.ChangeDetectionCondition = " ";
+            } else {
+                pullFilter.ChangeDetectionCondition = "and vw.uniquename='" + subscriberUUID + "' ";
+            }
+
+            if (tableName.equalsIgnoreCase("mergeidentity"))
+                pullFilter.ChangeDetectionCondition += " and tb.SubscriberId= " + subscriberId + " ";
+
+            Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
+        }
+
+        return pullFilter;
+    }
+
 
     private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         DataObject tableSync = new DataObject();
         tableSync.TableName = tableName;
         tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
         sqLiteClientQueryBuilder.buildQueries(tableSync, tableSchema);
-        String filterVW = tableSchema + "." + tableName;
 
-        if (tableSchema == null || tableSchema.isEmpty())
-            filterVW = tableName;
+        PullFilter pullFilter = BuildPullFilter(tableSchema, tableName, tableFilter, subscriberUUID, subscriberId);
 
-        String filterVW_CD = " ";
-
-        if (tableFilter != null && tableFilter.trim().length() > 0) {
-            filterVW = tableFilter;
-            if(filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
-                filterVW = filterVW.replace("@incomming_uniquename", subscriberUUID);
-                filterVW_CD = " ";
-            }
-            else
-                filterVW_CD = "and vw.uniquename='" + subscriberUUID + "' ";
-            if(tableName.equalsIgnoreCase("mergeidentity"))
-                filterVW_CD += " and tb.SubscriberId= " + subscriberId + " ";
-            Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
-        }
-
-        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
-        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD);
-        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
+        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition, subscriberUUID);
+        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition);
+        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition, subscriberUUID);
 
         AddSyncTriggers(tableSync, tableName, tableSchema);
 
