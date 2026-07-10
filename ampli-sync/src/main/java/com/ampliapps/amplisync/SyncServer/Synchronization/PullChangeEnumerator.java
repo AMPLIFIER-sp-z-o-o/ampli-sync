@@ -15,8 +15,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-
-
 public class PullChangeEnumerator {
     private final SyncRecordMapper recordMapper = new SyncRecordMapper();
 
@@ -27,75 +25,12 @@ public class PullChangeEnumerator {
 
         int addedRecords = enumerateInserts(changeSet, root, mapper, queryInserts);
 
-
         if (hasCapacity(addedRecords)) {
-            Connection cn = Database.getInstance().GetDBConnection();
-
-            try {
-                Statement cmd = cn.createStatement();
-                Logs.write(Logs.Level.TRACE, queryUpdates.toString());
-                boolean hasResults = cmd.execute(queryUpdates.toString());
-                do {
-                    if (hasResults) {
-                        try (ResultSet rs = cmd.getResultSet()) {
-                            changeSet.Updates = cacheResultSet(rs);
-
-                            ArrayNode updates = mapper.createArrayNode();
-                            while (changeSet.Updates.next()) {
-                                changeSet.HasRows = true;
-                                ObjectNode record = mapCurrentRecord(changeSet.Updates, mapper);
-
-                                updates.add(record);
-                                addedRecords++;
-                            }
-
-                            root.set("updates", updates);
-                        } catch (Exception e) {
-                            Logs.write(Logs.Level.ERROR, "EnumarateChanges() updates " + e.getMessage());
-                        }
-                    }
-
-                    hasResults = cmd.getMoreResults();
-                } while (hasResults || cmd.getUpdateCount() != -1);
-            } catch (SQLException e) {
-                Logs.write(Logs.Level.ERROR, "EnumarateChanges() updates " + e.getMessage());
-            } finally {
-                JDBCCloser.close(cn);
-            }
+            addedRecords = enumerateUpdates(changeSet, root, mapper, queryUpdates, addedRecords);
         }
 
         if (hasCapacity(addedRecords)) {
-            Connection cn = Database.getInstance().GetDBConnection();
-
-            try {
-                Statement cmd = cn.createStatement();
-                Logs.write(Logs.Level.TRACE, queryDeletes.toString());
-                boolean hasResults = cmd.execute(queryDeletes.toString());
-                do {
-                    if (hasResults) {
-                        try (ResultSet rs = cmd.getResultSet()) {
-                            changeSet.Deletes = cacheResultSet(rs);
-
-                            ArrayNode deletes = mapper.createArrayNode();
-                            while (changeSet.Deletes.next()) {
-                                changeSet.HasRows = true;
-                                deletes.add(mapper.createObjectNode().put("rowid", changeSet.Deletes.getString(1)));
-                                addedRecords++;
-                            }
-
-                            root.set("deletes", deletes);
-                        } catch (Exception e) {
-                            Logs.write(Logs.Level.ERROR, "EnumarateChanges() deletes " + e.getMessage());
-                        }
-                    }
-
-                    hasResults = cmd.getMoreResults();
-                } while (hasResults || cmd.getUpdateCount() != -1);
-            } catch (SQLException e) {
-                Logs.write(Logs.Level.ERROR, "EnumarateChanges() deletes " + e.getMessage());
-            } finally {
-                JDBCCloser.close(cn);
-            }
+            addedRecords = enumerateDeletes(changeSet, root, mapper, queryDeletes, addedRecords);
         }
 
         changeSet.RowsCount = addedRecords;
@@ -154,6 +89,80 @@ public class PullChangeEnumerator {
             } while (hasResults || cmd.getUpdateCount() != -1);
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "EnumerateChanges() " + e.getMessage());
+        } finally {
+            JDBCCloser.close(cn);
+        }
+
+        return addedRecords;
+    }
+
+    private int enumerateUpdates(PullChangeSet changeSet, ObjectNode root, ObjectMapper mapper, StringBuilder queryUpdates, int addedRecords) {
+        Connection cn = Database.getInstance().GetDBConnection();
+
+        try {
+            Statement cmd = cn.createStatement();
+            Logs.write(Logs.Level.TRACE, queryUpdates.toString());
+            boolean hasResults = cmd.execute(queryUpdates.toString());
+            do {
+                if (hasResults) {
+                    try (ResultSet rs = cmd.getResultSet()) {
+                        changeSet.Updates = cacheResultSet(rs);
+
+                        ArrayNode updates = mapper.createArrayNode();
+                        while (changeSet.Updates.next()) {
+                            changeSet.HasRows = true;
+                            ObjectNode record = mapCurrentRecord(changeSet.Updates, mapper);
+
+                            updates.add(record);
+                            addedRecords++;
+                        }
+
+                        root.set("updates", updates);
+                    } catch (Exception e) {
+                        Logs.write(Logs.Level.ERROR, "EnumarateChanges() updates " + e.getMessage());
+                    }
+                }
+
+                hasResults = cmd.getMoreResults();
+            } while (hasResults || cmd.getUpdateCount() != -1);
+        } catch (SQLException e) {
+            Logs.write(Logs.Level.ERROR, "EnumarateChanges() updates " + e.getMessage());
+        } finally {
+            JDBCCloser.close(cn);
+        }
+
+        return addedRecords;
+    }
+
+    private int enumerateDeletes(PullChangeSet changeSet, ObjectNode root, ObjectMapper mapper, StringBuilder queryDeletes, int addedRecords) {
+        Connection cn = Database.getInstance().GetDBConnection();
+
+        try {
+            Statement cmd = cn.createStatement();
+            Logs.write(Logs.Level.TRACE, queryDeletes.toString());
+            boolean hasResults = cmd.execute(queryDeletes.toString());
+            do {
+                if (hasResults) {
+                    try (ResultSet rs = cmd.getResultSet()) {
+                        changeSet.Deletes = cacheResultSet(rs);
+
+                        ArrayNode deletes = mapper.createArrayNode();
+                        while (changeSet.Deletes.next()) {
+                            changeSet.HasRows = true;
+                            deletes.add(mapper.createObjectNode().put("rowid", changeSet.Deletes.getString(1)));
+                            addedRecords++;
+                        }
+
+                        root.set("deletes", deletes);
+                    } catch (Exception e) {
+                        Logs.write(Logs.Level.ERROR, "EnumarateChanges() deletes " + e.getMessage());
+                    }
+                }
+
+                hasResults = cmd.getMoreResults();
+            } while (hasResults || cmd.getUpdateCount() != -1);
+        } catch (SQLException e) {
+            Logs.write(Logs.Level.ERROR, "EnumarateChanges() deletes " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
         }
