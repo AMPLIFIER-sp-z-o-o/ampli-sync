@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
 public class SyncService {
 
     public Integer syncIdForTestPurpose = -1;
-    List<DataObject> dataToSync = new ArrayList<>();
     private final SQLQueries QUERIES = new SQLQueries();
     private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
@@ -48,6 +47,8 @@ public class SyncService {
 
     public String getChangesForTable(String subscriberUUID, String schema, String tableName, String deviceUUID) {
         Stopwatch stopwatch = Stopwatch.createStarted();
+        List<DataObject> dataToSync = new ArrayList<>();
+        EnumeratedTableChanges changes = null;
         CommonTools common = new CommonTools();
         String subscriberId = common.CheckIfSubscriberExists(subscriberUUID, deviceUUID).toString();
 
@@ -73,7 +74,7 @@ public class SyncService {
                 tableId = reader.getInt("tableid");
                 tableSchema = reader.getString("tableschema");
                 String tableFilter = reader.getString("tablefilter");
-                enumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
+                enumerateChanges(dataToSync, reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
             } else
                 Logs.write(Logs.Level.INFO, "DoSync(). Table " + schema + "." + tableName + " was not found in MergeTablesToSync.");
 
@@ -180,7 +181,7 @@ public class SyncService {
     }
 
 
-    private void enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+    private void enumerateChanges(List<DataObject> dataToSync, String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         DataObject tableSync = new DataObject();
         tableSync.TableName = tableName;
         tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
