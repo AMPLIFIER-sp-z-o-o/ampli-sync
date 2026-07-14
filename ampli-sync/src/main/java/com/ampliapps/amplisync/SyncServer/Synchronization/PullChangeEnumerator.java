@@ -25,11 +25,11 @@ public class PullChangeEnumerator {
 
         int addedRecords = enumerateInserts(changeSet, root, mapper, queryInserts);
 
-        if (hasCapacity(addedRecords)) {
+        if (!isPackageSizeReached(addedRecords)) {
             addedRecords = enumerateUpdates(changeSet, root, mapper, queryUpdates, addedRecords);
         }
 
-        if (hasCapacity(addedRecords)) {
+        if (!isPackageSizeReached(addedRecords)) {
             addedRecords = enumerateDeletes(changeSet, root, mapper, queryDeletes, addedRecords);
         }
 
@@ -75,7 +75,7 @@ public class PullChangeEnumerator {
                             inserts.add(record);
                             addedRecords++;
 
-                            if (!hasCapacity(addedRecords))
+                            if (isPackageSizeReached(addedRecords))
                                 break;
                         }
 
@@ -170,8 +170,8 @@ public class PullChangeEnumerator {
         return addedRecords;
     }
 
-    private boolean hasCapacity(int addedRecords) {
-        return addedRecords != Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE);
+    private boolean isPackageSizeReached(int addedRecords) {
+        return addedRecords == Integer.parseInt(SQLiteSyncConfig.PACKAGE_SIZE);
     }
 
     private CachedRowSet cacheResultSet(ResultSet rs) throws SQLException {
