@@ -74,11 +74,19 @@ public class SyncService {
                 tableId = reader.getInt("tableid");
                 tableSchema = reader.getString("tableschema");
                 String tableFilter = reader.getString("tablefilter");
-                enumerateChanges(dataToSync, reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
+                changes = enumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
+                if (changes.pullChangeSet.HasRows)
+                    dataToSync.add(changes.tableSync);
+
             } else
                 Logs.write(Logs.Level.INFO, "DoSync(). Table " + schema + "." + tableName + " was not found in MergeTablesToSync.");
 
-            Integer syncId = StartNewSync(subscriberId, tableId, tableSchema);
+            Integer syncId = StartPullSync(
+                    subscriberId,
+                    tableId,
+                    tableSchema,
+                    changes != null ? changes.pullChangeSet : null
+            );
             this.syncIdForTestPurpose = syncId;
             for (DataObject obj : dataToSync) {
                 obj.SyncId = syncId;
@@ -136,6 +144,30 @@ public class SyncService {
         return syncId;
     }
 
+    public Integer StartPullSync(String subscriberId, Integer tableId, String schema, PullChangeSet changeSet) {
+
+        File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "SyncData");
+        if (!theDir.exists()) {
+            try {
+                theDir.mkdir();
+            } catch (SecurityException e) {
+                Logs.write(Logs.Level.ERROR, "StartNewSync()->Creating folder SyncData " + e.getMessage());
+            }
+        }
+
+        Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
+
+        syncSessionStore.writeSyncData(
+                syncId.toString(),
+                changeSet != null ? changeSet.Inserts : null,
+                changeSet != null ? changeSet.Updates : null,
+                changeSet != null ? changeSet.Deletes : null
+        );
+
+        return syncId;
+    }
+
+
     private void addSyncTriggers(DataObject tableSync, String tableName, String tableSchema) {
         if (tableName.equalsIgnoreCase("mergeidentity")) {
             return;
@@ -180,8 +212,12 @@ public class SyncService {
         return pullFilter;
     }
 
+    private static class EnumeratedTableChanges {
+        private DataObject tableSync;
+        private PullChangeSet pullChangeSet;
+    }
 
-    private void enumerateChanges(List<DataObject> dataToSync, String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+    private EnumeratedTableChanges enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         DataObject tableSync = new DataObject();
         tableSync.TableName = tableName;
         tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
@@ -198,16 +234,13 @@ public class SyncService {
 
         PullChangeSet changeSet = pullChangeEnumerator.enumerate(queryInserts, queryUpdates, queryDeletes);
 
-        tablesData = changeSet.Inserts;
-        tablesDataUpdates = changeSet.Updates;
-        tablesDataDeletes = changeSet.Deletes;
-
         tableSync.RowsCount = changeSet.RowsCount.toString();
         tableSync.Records = changeSet.Records;
 
-        if (changeSet.HasRows)
-            dataToSync.add(tableSync);
-
+        EnumeratedTableChanges changes = new EnumeratedTableChanges();
+        changes.tableSync = tableSync;
+        changes.pullChangeSet = changeSet;
+        return changes;
     }
 
     public void CommitSync(String syncId, String schema) {
