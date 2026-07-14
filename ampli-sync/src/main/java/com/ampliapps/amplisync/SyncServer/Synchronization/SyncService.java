@@ -108,16 +108,9 @@ public class SyncService {
             JDBCCloser.close(cn);
         }
 
+        String syncResponse = serializeSyncResponse(dataToSync);
+        Logs.write(Logs.Level.TRACE, syncResponse);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-        StringWriter stringEmp = new StringWriter();
-        try {
-            objectMapper.writeValue(stringEmp, dataToSync);
-        } catch (IOException ex) {
-            Logs.write(Logs.Level.ERROR, "DoSync()->JSON Serialization " + ex.getMessage());
-        }
-        Logs.write(Logs.Level.TRACE, stringEmp.toString());
         stopwatch.stop();
         Long stopwatchMilisecs  = stopwatch.elapsed(TimeUnit.MILLISECONDS);
         if(stopwatchMilisecs > 400)
@@ -125,6 +118,20 @@ public class SyncService {
                 Logs.write(Logs.Level.WARN, "Getting changes for subscriber ["+deviceUUID+"]/[" + subscriberId + "] and table [" + tableName + "], no changes. Time elapsed: "+ stopwatchMilisecs);
             else
                 Logs.write(Logs.Level.WARN, "Getting changes for subscriber ["+deviceUUID+"]/[" + subscriberId + "] and table [" + tableName + "], records count [" + dataToSync.get(0).RowsCount + "/" + dataToSync.get(0).MaxPackageSize + "]. Time elapsed: "+ stopwatchMilisecs);
+        return syncResponse;
+    }
+
+    private String serializeSyncResponse(List<DataObject> dataToSync) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+        StringWriter stringEmp = new StringWriter();
+
+        try {
+            objectMapper.writeValue(stringEmp, dataToSync);
+        } catch (IOException ex) {
+            Logs.write(Logs.Level.ERROR, "DoSync()->JSON Serialization " + ex.getMessage());
+        }
+
         return stringEmp.toString();
     }
 
