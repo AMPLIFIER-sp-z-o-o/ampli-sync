@@ -37,9 +37,6 @@ public class SyncService {
     private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
     private final SQLiteClientQueryBuilder sqLiteClientQueryBuilder = new SQLiteClientQueryBuilder();
     private final PullChangeEnumerator pullChangeEnumerator = new PullChangeEnumerator();
-    public CachedRowSet tablesData = null;
-    public CachedRowSet tablesDataUpdates = null;
-    public CachedRowSet tablesDataDeletes = null;
 
     public SyncService() {
         SQLiteSyncConfig.Load();
@@ -81,12 +78,17 @@ public class SyncService {
             } else
                 Logs.write(Logs.Level.INFO, "DoSync(). Table " + schema + "." + tableName + " was not found in MergeTablesToSync.");
 
-            Integer syncId = StartPullSync(
+            PullChangeSet changeSet = changes != null ? changes.pullChangeSet : null;
+
+            Integer syncId = StartNewSync(
                     subscriberId,
                     tableId,
                     tableSchema,
-                    changes != null ? changes.pullChangeSet : null
+                    changeSet != null ? changeSet.Inserts : null,
+                    changeSet != null ? changeSet.Updates : null,
+                    changeSet != null ? changeSet.Deletes : null
             );
+
             this.syncIdForTestPurpose = syncId;
             for (DataObject obj : dataToSync) {
                 obj.SyncId = syncId;
@@ -126,7 +128,15 @@ public class SyncService {
         return stringEmp.toString();
     }
 
-    public Integer StartNewSync(String subscriberId, Integer tableId, String schema) {
+
+    public Integer StartNewSync(
+            String subscriberId,
+            Integer tableId,
+            String schema,
+            CachedRowSet inserts,
+            CachedRowSet updates,
+            CachedRowSet deletes
+    ) {
 
         File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "SyncData");
         if (!theDir.exists()) {
@@ -139,34 +149,10 @@ public class SyncService {
 
         Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
 
-        syncSessionStore.writeSyncData(syncId.toString(), tablesData, tablesDataUpdates, tablesDataDeletes);
+        syncSessionStore.writeSyncData(syncId.toString(), inserts, updates, deletes);
 
         return syncId;
     }
-
-    public Integer StartPullSync(String subscriberId, Integer tableId, String schema, PullChangeSet changeSet) {
-
-        File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "SyncData");
-        if (!theDir.exists()) {
-            try {
-                theDir.mkdir();
-            } catch (SecurityException e) {
-                Logs.write(Logs.Level.ERROR, "StartNewSync()->Creating folder SyncData " + e.getMessage());
-            }
-        }
-
-        Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
-
-        syncSessionStore.writeSyncData(
-                syncId.toString(),
-                changeSet != null ? changeSet.Inserts : null,
-                changeSet != null ? changeSet.Updates : null,
-                changeSet != null ? changeSet.Deletes : null
-        );
-
-        return syncId;
-    }
-
 
     private void addSyncTriggers(DataObject tableSync, String tableName, String tableSchema) {
         if (tableName.equalsIgnoreCase("mergeidentity")) {
