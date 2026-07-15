@@ -177,37 +177,37 @@ public class SyncService {
         tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
     }
 
-    private PullFilter buildPullFilter(String tableSchema, String tableName, String tableFilter, String subscriberUUID, String subscriberId) {
-        PullFilter pullFilter = new PullFilter();
+    private record PullFilter(String view, String changeDetectionCondition) {
+    }
 
-        pullFilter.View = tableSchema + "." + tableName;
+    private PullFilter buildPullFilter(String tableSchema, String tableName, String tableFilter, String subscriberUUID, String subscriberId) {
+        String view = tableSchema + "." + tableName;
 
         if (tableSchema == null || tableSchema.isEmpty())
-            pullFilter.View = tableName;
+            view = tableName;
 
-        pullFilter.ChangeDetectionCondition = " ";
+        String changeDetectionCondition = " ";
 
         if (tableFilter != null && tableFilter.trim().length() > 0) {
-            pullFilter.View = tableFilter;
-            if (pullFilter.View.startsWith("public.fn_") || pullFilter.View.startsWith("fn_")) {
-                pullFilter.View = pullFilter.View.replace("@incomming_uniquename", subscriberUUID);
-                pullFilter.ChangeDetectionCondition = " ";
+            view = tableFilter;
+
+            if (view.startsWith("public.fn_") || view.startsWith("fn_")) {
+                view = view.replace("@incomming_uniquename", subscriberUUID);
+                changeDetectionCondition = " ";
             } else {
-                pullFilter.ChangeDetectionCondition = "and vw.uniquename='" + subscriberUUID + "' ";
+                changeDetectionCondition = "and vw.uniquename='" + subscriberUUID + "' ";
             }
 
             if (tableName.equalsIgnoreCase("mergeidentity"))
-                pullFilter.ChangeDetectionCondition += " and tb.SubscriberId= " + subscriberId + " ";
+                changeDetectionCondition += " and tb.SubscriberId= " + subscriberId + " ";
 
             Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
         }
 
-        return pullFilter;
+        return new PullFilter(view, changeDetectionCondition);
     }
 
-    private static class EnumeratedTableChanges {
-        private DataObject tableSync;
-        private PullChangeSet pullChangeSet;
+    private record EnumeratedTableChanges(DataObject tableSync, PullChangeSet pullChangeSet) {
     }
 
     private EnumeratedTableChanges enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
@@ -219,9 +219,9 @@ public class SyncService {
 
         PullFilter pullFilter = buildPullFilter(tableSchema, tableName, tableFilter, subscriberUUID, subscriberId);
 
-        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition, subscriberUUID);
-        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition);
-        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition, subscriberUUID);
+        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, pullFilter.view(), pullFilter.changeDetectionCondition(), subscriberUUID);
+        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, pullFilter.view(), pullFilter.changeDetectionCondition());
+        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, pullFilter.view(), pullFilter.changeDetectionCondition(), subscriberUUID);
 
         addSyncTriggers(tableSync, tableName, tableSchema);
 
@@ -230,10 +230,8 @@ public class SyncService {
         tableSync.RowsCount = changeSet.RowsCount.toString();
         tableSync.Records = changeSet.Records;
 
-        EnumeratedTableChanges changes = new EnumeratedTableChanges();
-        changes.tableSync = tableSync;
-        changes.pullChangeSet = changeSet;
-        return changes;
+        return new EnumeratedTableChanges(tableSync, changeSet);
+
     }
 
     public void CommitSync(String syncId, String schema) {
@@ -334,27 +332,26 @@ public class SyncService {
         }
     }
 
-        private void updateDeletedSyncData(String schema, CommitSyncSession session, CachedRowSet cachedDataDeletes) {
-            if (cachedDataDeletes != null) {
-                Connection cn = Database.getInstance().GetDBConnection();
-                try {
-                    PreparedStatement cmdD = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_DELETE(schema, session.tableName()));
-                    cachedDataDeletes.beforeFirst();
-                    while (cachedDataDeletes.next()) {
-                        cmdD.setString(1, cachedDataDeletes.getString(1));
-                        cmdD.setInt(2, session.subscriberId());
-                        cmdD.addBatch();
-                    }
-                    cmdD.executeBatch();
-
-                } catch (Exception e) {
-                    Logs.write(Logs.Level.ERROR, "UpdateSyncData()->deletes " + e.getMessage());
-                } finally {
-                    JDBCCloser.close(cn);
+    private void updateDeletedSyncData(String schema, CommitSyncSession session, CachedRowSet cachedDataDeletes) {
+        if (cachedDataDeletes != null) {
+            Connection cn = Database.getInstance().GetDBConnection();
+            try {
+                PreparedStatement cmdD = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_DELETE(schema, session.tableName()));
+                cachedDataDeletes.beforeFirst();
+                while (cachedDataDeletes.next()) {
+                    cmdD.setString(1, cachedDataDeletes.getString(1));
+                    cmdD.setInt(2, session.subscriberId());
+                    cmdD.addBatch();
                 }
-            }
+                cmdD.executeBatch();
 
+            } catch (Exception e) {
+                Logs.write(Logs.Level.ERROR, "UpdateSyncData()->deletes " + e.getMessage());
+            } finally {
+                JDBCCloser.close(cn);
+            }
         }
+    }
 
     public void ReceiveData(ObjectNode receivedData, String schema, String subscriberUUID, String deviceUniqueId) {
         Logs.write(Logs.Level.INFO, "Receiving data from subscriber " + subscriberUUID);
