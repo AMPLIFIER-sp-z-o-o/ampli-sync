@@ -72,13 +72,13 @@ public class SyncService {
                 tableSchema = reader.getString("tableschema");
                 String tableFilter = reader.getString("tablefilter");
                 changes = enumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
-                if (changes.pullChangeSet.HasRows)
-                    dataToSync.add(changes.tableSync);
+                if (changes.pullChangeSet().HasRows)
+                    dataToSync.add(changes.tableSync());
 
             } else
                 Logs.write(Logs.Level.INFO, "DoSync(). Table " + schema + "." + tableName + " was not found in MergeTablesToSync.");
 
-            PullChangeSet changeSet = changes != null ? changes.pullChangeSet : null;
+            PullChangeSet changeSet = changes != null ? changes.pullChangeSet() : null;
 
             Integer syncId = StartNewSync(
                     subscriberId,
