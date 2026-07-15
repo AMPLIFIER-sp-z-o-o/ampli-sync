@@ -274,15 +274,15 @@ public class SyncService {
         return new CommitSyncSession(tableName, subscriberId);
     }
 
-    private void UpdateSyncData(Integer syncId, String schema, String tableName, Integer subscriberId, CachedRowSet cachedDataInserts, CachedRowSet cachedDataUpdates, CachedRowSet cachedDataDeletes) {
+    private void UpdateSyncData(Integer syncId, String schema, CommitSyncSession session, CachedRowSet cachedDataInserts, CachedRowSet cachedDataUpdates, CachedRowSet cachedDataDeletes) {
 
         if (cachedDataInserts != null) {
             Connection cn = Database.getInstance().GetDBConnection();
             try {
-                PreparedStatement cmdI = cn.prepareStatement(QUERIES.INSERT_MERGE_CONTENT(schema, tableName));
+                PreparedStatement cmdI = cn.prepareStatement(QUERIES.INSERT_MERGE_CONTENT(schema, session.tableName));
                 cachedDataInserts.beforeFirst();
                 while (cachedDataInserts.next()) {
-                    cmdI.setInt(1, subscriberId);
+                    cmdI.setInt(1, session.subscriberId);
                     cmdI.setString(2, cachedDataInserts.getString("rowid").trim());
                     cmdI.setTimestamp(3, new java.sql.Timestamp(new Date().getTime()));
                     cmdI.setInt(4, 1);
@@ -301,12 +301,12 @@ public class SyncService {
         if (cachedDataUpdates != null) {
             Connection cn = Database.getInstance().GetDBConnection();
             try {
-                PreparedStatement cmdU = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_UPDATE(schema, tableName));
+                PreparedStatement cmdU = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_UPDATE(schema, session.tableName));
 
                 cachedDataUpdates.beforeFirst();
                 while (cachedDataUpdates.next()) {
                     cmdU.setString(1, cachedDataUpdates.getString("rowid").trim());
-                    cmdU.setInt(2, subscriberId);
+                    cmdU.setInt(2, session.subscriberId);
                     cmdU.addBatch();
                 }
                 cmdU.executeBatch();
@@ -321,11 +321,11 @@ public class SyncService {
         if (cachedDataDeletes != null) {
             Connection cn = Database.getInstance().GetDBConnection();
             try {
-                PreparedStatement cmdD = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_DELETE(schema, tableName));
+                PreparedStatement cmdD = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_DELETE(schema, session.tableName));
                 cachedDataDeletes.beforeFirst();
                 while (cachedDataDeletes.next()) {
                     cmdD.setString(1, cachedDataDeletes.getString(1));
-                    cmdD.setInt(2, subscriberId);
+                    cmdD.setInt(2, session.subscriberId);
                     cmdD.addBatch();
                 }
                 cmdD.executeBatch();
