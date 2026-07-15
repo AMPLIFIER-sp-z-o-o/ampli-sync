@@ -241,13 +241,26 @@ public class SyncService {
         CachedRowSet cachedDataUpdates = syncSessionStore.readUpdates(syncId);
         CachedRowSet cachedDataDeletes = syncSessionStore.readDeletes(syncId);
 
+        CommitSyncSession session = readCommitSyncSession(syncId, schema);
+
+        UpdateSyncData(Integer.parseInt(syncId), schema, session, cachedDataInserts, cachedDataUpdates, cachedDataDeletes);
+
+        syncSessionRepository.finishSync(syncId, schema);
+    }
+
+    private record CommitSyncSession(String tableName, int subscriberId) {
+    }
+
+    private CommitSyncSession readCommitSyncSession(String syncId, String schema) {
         String tableName = "";
         int subscriberId = 0;
+
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             PreparedStatement query = cn.prepareStatement(QUERIES.COMMIT_SYNC(schema));
             query.setInt(1, Integer.parseInt(syncId));
             ResultSet reader = query.executeQuery();
+
             while (reader.next()) {
                 tableName = reader.getString("TableName");
                 subscriberId = reader.getInt("subscriberId");
@@ -258,9 +271,9 @@ public class SyncService {
             JDBCCloser.close(cn);
         }
 
-        UpdateSyncData(Integer.parseInt(syncId), schema, tableName, subscriberId, cachedDataInserts, cachedDataUpdates, cachedDataDeletes);
-        syncSessionRepository.finishSync(syncId, schema);
+        return new CommitSyncSession(tableName, subscriberId);
     }
+
     private void UpdateSyncData(Integer syncId, String schema, String tableName, Integer subscriberId, CachedRowSet cachedDataInserts, CachedRowSet cachedDataUpdates, CachedRowSet cachedDataDeletes) {
 
         if (cachedDataInserts != null) {
