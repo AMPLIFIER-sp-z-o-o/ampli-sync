@@ -274,15 +274,27 @@ public class SyncService {
         return new CommitSyncSession(tableName, subscriberId);
     }
 
-    private void UpdateSyncData(Integer syncId, String schema, CommitSyncSession session, CachedRowSet cachedDataInserts, CachedRowSet cachedDataUpdates, CachedRowSet cachedDataDeletes) {
+    private void UpdateSyncData(
+            Integer syncId,
+            String schema,
+            CommitSyncSession session,
+            CachedRowSet cachedDataInserts,
+            CachedRowSet cachedDataUpdates,
+            CachedRowSet cachedDataDeletes
+    ) {
+        updateInsertedSyncData(syncId, schema, session, cachedDataInserts);
+        updateUpdatedSyncData(schema, session, cachedDataUpdates);
+        updateDeletedSyncData(schema, session, cachedDataDeletes);
+    }
 
+    private void updateInsertedSyncData(Integer syncId, String schema, CommitSyncSession session, CachedRowSet cachedDataInserts) {
         if (cachedDataInserts != null) {
             Connection cn = Database.getInstance().GetDBConnection();
             try {
-                PreparedStatement cmdI = cn.prepareStatement(QUERIES.INSERT_MERGE_CONTENT(schema, session.tableName));
+                PreparedStatement cmdI = cn.prepareStatement(QUERIES.INSERT_MERGE_CONTENT(schema, session.tableName()));
                 cachedDataInserts.beforeFirst();
                 while (cachedDataInserts.next()) {
-                    cmdI.setInt(1, session.subscriberId);
+                    cmdI.setInt(1, session.subscriberId());
                     cmdI.setString(2, cachedDataInserts.getString("rowid").trim());
                     cmdI.setTimestamp(3, new java.sql.Timestamp(new Date().getTime()));
                     cmdI.setInt(4, 1);
@@ -298,15 +310,18 @@ public class SyncService {
             }
         }
 
+    }
+
+    private void updateUpdatedSyncData(String schema, CommitSyncSession session, CachedRowSet cachedDataUpdates) {
         if (cachedDataUpdates != null) {
             Connection cn = Database.getInstance().GetDBConnection();
             try {
-                PreparedStatement cmdU = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_UPDATE(schema, session.tableName));
+                PreparedStatement cmdU = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_UPDATE(schema, session.tableName()));
 
                 cachedDataUpdates.beforeFirst();
                 while (cachedDataUpdates.next()) {
                     cmdU.setString(1, cachedDataUpdates.getString("rowid").trim());
-                    cmdU.setInt(2, session.subscriberId);
+                    cmdU.setInt(2, session.subscriberId());
                     cmdU.addBatch();
                 }
                 cmdU.executeBatch();
@@ -317,26 +332,29 @@ public class SyncService {
                 JDBCCloser.close(cn);
             }
         }
-
-        if (cachedDataDeletes != null) {
-            Connection cn = Database.getInstance().GetDBConnection();
-            try {
-                PreparedStatement cmdD = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_DELETE(schema, session.tableName));
-                cachedDataDeletes.beforeFirst();
-                while (cachedDataDeletes.next()) {
-                    cmdD.setString(1, cachedDataDeletes.getString(1));
-                    cmdD.setInt(2, session.subscriberId);
-                    cmdD.addBatch();
-                }
-                cmdD.executeBatch();
-
-            } catch (Exception e) {
-                Logs.write(Logs.Level.ERROR, "UpdateSyncData()->deletes " + e.getMessage());
-            } finally {
-                JDBCCloser.close(cn);
-            }
-        }
     }
+
+        private void updateDeletedSyncData(String schema, CommitSyncSession session, CachedRowSet cachedDataDeletes) {
+            if (cachedDataDeletes != null) {
+                Connection cn = Database.getInstance().GetDBConnection();
+                try {
+                    PreparedStatement cmdD = cn.prepareStatement(QUERIES.UPDATE_SYNC_DATA_DELETE(schema, session.tableName()));
+                    cachedDataDeletes.beforeFirst();
+                    while (cachedDataDeletes.next()) {
+                        cmdD.setString(1, cachedDataDeletes.getString(1));
+                        cmdD.setInt(2, session.subscriberId());
+                        cmdD.addBatch();
+                    }
+                    cmdD.executeBatch();
+
+                } catch (Exception e) {
+                    Logs.write(Logs.Level.ERROR, "UpdateSyncData()->deletes " + e.getMessage());
+                } finally {
+                    JDBCCloser.close(cn);
+                }
+            }
+
+        }
 
     public void ReceiveData(ObjectNode receivedData, String schema, String subscriberUUID, String deviceUniqueId) {
         Logs.write(Logs.Level.INFO, "Receiving data from subscriber " + subscriberUUID);
