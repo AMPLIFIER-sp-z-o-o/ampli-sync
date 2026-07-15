@@ -241,7 +241,7 @@ public class SyncService {
 
         CommitSyncSession session = readCommitSyncSession(syncId, schema);
 
-        UpdateSyncData(Integer.parseInt(syncId), schema, session, cachedDataInserts, cachedDataUpdates, cachedDataDeletes);
+        updateSyncData(Integer.parseInt(syncId), schema, session, cachedDataInserts, cachedDataUpdates, cachedDataDeletes);
 
         syncSessionRepository.finishSync(syncId, schema);
     }
@@ -272,7 +272,7 @@ public class SyncService {
         return new CommitSyncSession(tableName, subscriberId);
     }
 
-    private void UpdateSyncData(
+    private void updateSyncData(
             Integer syncId,
             String schema,
             CommitSyncSession session,
