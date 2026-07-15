@@ -9,13 +9,11 @@ import com.ampliapps.amplisync.SyncServer.SchemaPublish.SchemaGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Stopwatch;
 import org.postgresql.util.PGobject;
 
 import javax.sql.rowset.CachedRowSet;
-import javax.sql.rowset.RowSetProvider;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
@@ -35,7 +33,6 @@ public class SyncService {
     public Integer syncIdForTestPurpose = -1;
     List<DataObject> dataToSync = new ArrayList<>();
     private final SQLQueries QUERIES = new SQLQueries();
-    private final SyncRecordMapper recordMapper = new SyncRecordMapper();
     private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
     private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
@@ -76,7 +73,7 @@ public class SyncService {
                 tableId = reader.getInt("tableid");
                 tableSchema = reader.getString("tableschema");
                 String tableFilter = reader.getString("tablefilter");
-                EnumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
+                enumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
             } else
                 Logs.write(Logs.Level.INFO, "DoSync(). Table " + schema + "." + tableName + " was not found in MergeTablesToSync.");
 
@@ -138,47 +135,65 @@ public class SyncService {
         return syncId;
     }
 
-    private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
-        DataObject tableSync = new DataObject();
-        boolean hasRows = false;
-        tableSync.TableName = tableName;
-        tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
-        sqLiteClientQueryBuilder.buildQueries(tableSync, tableSchema);
-        String filterVW = tableSchema + "." + tableName;
+    private void addSyncTriggers(DataObject tableSync, String tableName, String tableSchema) {
+        if (tableName.equalsIgnoreCase("mergeidentity")) {
+            return;
+        }
+
+        SchemaGenerator schemaGenerator = new SchemaGenerator();
+        DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableName, tableSchema);
+
+        tableSync.TriggerInsert = "select 1;";
+        tableSync.TriggerInsertDrop = "select 1;";
+        tableSync.TriggerUpdate = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
+        tableSync.TriggerUpdateDrop = "drop trigger if exists \"trmergeupdate_" + tableName + "\"";
+        tableSync.TriggerDelete = schemaGenerator.CreateDeleteTrigger(table);
+        tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
+    }
+
+    private PullFilter buildPullFilter(String tableSchema, String tableName, String tableFilter, String subscriberUUID, String subscriberId) {
+        PullFilter pullFilter = new PullFilter();
+
+        pullFilter.View = tableSchema + "." + tableName;
 
         if (tableSchema == null || tableSchema.isEmpty())
-            filterVW = tableName;
+            pullFilter.View = tableName;
 
-        String filterVW_CD = " ";
+        pullFilter.ChangeDetectionCondition = " ";
 
         if (tableFilter != null && tableFilter.trim().length() > 0) {
-            filterVW = tableFilter;
-            if(filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
-                filterVW = filterVW.replace("@incomming_uniquename", subscriberUUID);
-                filterVW_CD = " ";
+            pullFilter.View = tableFilter;
+            if (pullFilter.View.startsWith("public.fn_") || pullFilter.View.startsWith("fn_")) {
+                pullFilter.View = pullFilter.View.replace("@incomming_uniquename", subscriberUUID);
+                pullFilter.ChangeDetectionCondition = " ";
+            } else {
+                pullFilter.ChangeDetectionCondition = "and vw.uniquename='" + subscriberUUID + "' ";
             }
-            else
-                filterVW_CD = "and vw.uniquename='" + subscriberUUID + "' ";
-            if(tableName.equalsIgnoreCase("mergeidentity"))
-                filterVW_CD += " and tb.SubscriberId= " + subscriberId + " ";
+
+            if (tableName.equalsIgnoreCase("mergeidentity"))
+                pullFilter.ChangeDetectionCondition += " and tb.SubscriberId= " + subscriberId + " ";
+
             Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
         }
 
-        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
-        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD);
-        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, filterVW, filterVW_CD, subscriberUUID);
+        return pullFilter;
+    }
 
-        SchemaGenerator schemaGenerator = new SchemaGenerator();
 
-        DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableName, tableSchema);
-        if (!tableName.equalsIgnoreCase("mergeidentity")) {
-            tableSync.TriggerInsert =  "select 1;";
-            tableSync.TriggerInsertDrop = "select 1;";
-            tableSync.TriggerUpdate = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
-            tableSync.TriggerUpdateDrop = "drop trigger if exists \"trmergeupdate_" + tableName + "\"";
-            tableSync.TriggerDelete = schemaGenerator.CreateDeleteTrigger(table);
-            tableSync.TriggerDeleteDrop = "drop trigger if exists \"trmergedelete_" + tableName + "\"";
-        }
+    private void enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+        DataObject tableSync = new DataObject();
+        tableSync.TableName = tableName;
+        tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
+
+        sqLiteClientQueryBuilder.buildQueries(tableSync, tableSchema);
+
+        PullFilter pullFilter = buildPullFilter(tableSchema, tableName, tableFilter, subscriberUUID, subscriberId);
+
+        StringBuilder queryInserts = pullQueryBuilder.buildInsertChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition, subscriberUUID);
+        StringBuilder queryUpdates = pullQueryBuilder.buildUpdateChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition);
+        StringBuilder queryDeletes = pullQueryBuilder.buildDeleteChangesQuery(subscriberId, tableSchema, tableName, pullFilter.View, pullFilter.ChangeDetectionCondition, subscriberUUID);
+
+        addSyncTriggers(tableSync, tableName, tableSchema);
 
         PullChangeSet changeSet = pullChangeEnumerator.enumerate(queryInserts, queryUpdates, queryDeletes);
 
