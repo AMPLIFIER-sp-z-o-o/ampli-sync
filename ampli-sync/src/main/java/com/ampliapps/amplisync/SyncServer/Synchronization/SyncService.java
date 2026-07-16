@@ -31,16 +31,12 @@ import java.util.regex.Pattern;
 public class SyncService {
 
     public Integer syncIdForTestPurpose = -1;
-    List<DataObject> dataToSync = new ArrayList<>();
     private final SQLQueries QUERIES = new SQLQueries();
     private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
     private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
     private final SQLiteClientQueryBuilder sqLiteClientQueryBuilder = new SQLiteClientQueryBuilder();
     private final PullChangeEnumerator pullChangeEnumerator = new PullChangeEnumerator();
-    public CachedRowSet tablesData = null;
-    public CachedRowSet tablesDataUpdates = null;
-    public CachedRowSet tablesDataDeletes = null;
 
     public SyncService() {
         SQLiteSyncConfig.Load();
@@ -48,6 +44,8 @@ public class SyncService {
 
     public String getChangesForTable(String subscriberUUID, String schema, String tableName, String deviceUUID) {
         Stopwatch stopwatch = Stopwatch.createStarted();
+        List<DataObject> dataToSync = new ArrayList<>();
+        EnumeratedTableChanges changes = null;
         CommonTools common = new CommonTools();
         String subscriberId = common.CheckIfSubscriberExists(subscriberUUID, deviceUUID).toString();
 
@@ -73,11 +71,24 @@ public class SyncService {
                 tableId = reader.getInt("tableid");
                 tableSchema = reader.getString("tableschema");
                 String tableFilter = reader.getString("tablefilter");
-                enumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
+                changes = enumerateChanges(reader.getString("tableid"), subscriberId, reader.getString("tablename"), tableSchema, tableFilter, subscriberUUID);
+                if (changes.pullChangeSet.HasRows)
+                    dataToSync.add(changes.tableSync);
+
             } else
                 Logs.write(Logs.Level.INFO, "DoSync(). Table " + schema + "." + tableName + " was not found in MergeTablesToSync.");
 
-            Integer syncId = StartNewSync(subscriberId, tableId, tableSchema);
+            PullChangeSet changeSet = changes != null ? changes.pullChangeSet : null;
+
+            Integer syncId = StartNewSync(
+                    subscriberId,
+                    tableId,
+                    tableSchema,
+                    changeSet != null ? changeSet.Inserts : null,
+                    changeSet != null ? changeSet.Updates : null,
+                    changeSet != null ? changeSet.Deletes : null
+            );
+
             this.syncIdForTestPurpose = syncId;
             for (DataObject obj : dataToSync) {
                 obj.SyncId = syncId;
@@ -97,16 +108,9 @@ public class SyncService {
             JDBCCloser.close(cn);
         }
 
+        String syncResponse = serializeSyncResponse(dataToSync);
+        Logs.write(Logs.Level.TRACE, syncResponse);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-        StringWriter stringEmp = new StringWriter();
-        try {
-            objectMapper.writeValue(stringEmp, dataToSync);
-        } catch (IOException ex) {
-            Logs.write(Logs.Level.ERROR, "DoSync()->JSON Serialization " + ex.getMessage());
-        }
-        Logs.write(Logs.Level.TRACE, stringEmp.toString());
         stopwatch.stop();
         Long stopwatchMilisecs  = stopwatch.elapsed(TimeUnit.MILLISECONDS);
         if(stopwatchMilisecs > 400)
@@ -114,10 +118,32 @@ public class SyncService {
                 Logs.write(Logs.Level.WARN, "Getting changes for subscriber ["+deviceUUID+"]/[" + subscriberId + "] and table [" + tableName + "], no changes. Time elapsed: "+ stopwatchMilisecs);
             else
                 Logs.write(Logs.Level.WARN, "Getting changes for subscriber ["+deviceUUID+"]/[" + subscriberId + "] and table [" + tableName + "], records count [" + dataToSync.get(0).RowsCount + "/" + dataToSync.get(0).MaxPackageSize + "]. Time elapsed: "+ stopwatchMilisecs);
+        return syncResponse;
+    }
+
+    private String serializeSyncResponse(List<DataObject> dataToSync) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+        StringWriter stringEmp = new StringWriter();
+
+        try {
+            objectMapper.writeValue(stringEmp, dataToSync);
+        } catch (IOException ex) {
+            Logs.write(Logs.Level.ERROR, "DoSync()->JSON Serialization " + ex.getMessage());
+        }
+
         return stringEmp.toString();
     }
 
-    public Integer StartNewSync(String subscriberId, Integer tableId, String schema) {
+
+    public Integer StartNewSync(
+            String subscriberId,
+            Integer tableId,
+            String schema,
+            CachedRowSet inserts,
+            CachedRowSet updates,
+            CachedRowSet deletes
+    ) {
 
         File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "SyncData");
         if (!theDir.exists()) {
@@ -130,7 +156,7 @@ public class SyncService {
 
         Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
 
-        syncSessionStore.writeSyncData(syncId.toString(), tablesData, tablesDataUpdates, tablesDataDeletes);
+        syncSessionStore.writeSyncData(syncId.toString(), inserts, updates, deletes);
 
         return syncId;
     }
@@ -179,8 +205,12 @@ public class SyncService {
         return pullFilter;
     }
 
+    private static class EnumeratedTableChanges {
+        private DataObject tableSync;
+        private PullChangeSet pullChangeSet;
+    }
 
-    private void enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+    private EnumeratedTableChanges enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         DataObject tableSync = new DataObject();
         tableSync.TableName = tableName;
         tableSync.MaxPackageSize = SQLiteSyncConfig.PACKAGE_SIZE;
@@ -197,16 +227,13 @@ public class SyncService {
 
         PullChangeSet changeSet = pullChangeEnumerator.enumerate(queryInserts, queryUpdates, queryDeletes);
 
-        tablesData = changeSet.Inserts;
-        tablesDataUpdates = changeSet.Updates;
-        tablesDataDeletes = changeSet.Deletes;
-
         tableSync.RowsCount = changeSet.RowsCount.toString();
         tableSync.Records = changeSet.Records;
 
-        if (changeSet.HasRows)
-            dataToSync.add(tableSync);
-
+        EnumeratedTableChanges changes = new EnumeratedTableChanges();
+        changes.tableSync = tableSync;
+        changes.pullChangeSet = changeSet;
+        return changes;
     }
 
     public void CommitSync(String syncId, String schema) {

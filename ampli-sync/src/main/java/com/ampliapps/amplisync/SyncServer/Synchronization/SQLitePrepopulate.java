@@ -318,8 +318,14 @@ public class SQLitePrepopulate {
 
                 trCreate.executeBatch();
             }
-            syncService.tablesData = tablesData;
-            Integer syncId = syncService.StartNewSync(subscriberId, Integer.parseInt(tableId), tableSchema);
+            Integer syncId = syncService.StartNewSync(
+                    subscriberId,
+                    Integer.parseInt(tableId),
+                    tableSchema,
+                    tablesData,
+                    null,
+                    null
+            );
             syncService.CommitSync(syncId.toString(), tableSchema);
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "EnumerateChanges(): " + tableName + ". " + e.getMessage());
