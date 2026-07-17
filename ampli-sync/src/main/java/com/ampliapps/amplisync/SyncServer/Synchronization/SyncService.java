@@ -399,8 +399,7 @@ public class SyncService {
     }
 
     private File receivedDataFile(Integer syncId) {
-        return new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId +
-                ".dat");
+        return new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId + ".dat");
     }
 
 
@@ -415,16 +414,7 @@ public class SyncService {
             // collecting inserts
             JsonNode changes = data.path("changes");
             if (changes.isArray()) {
-                PreparedStatement tablesOrder = cn.prepareStatement(QUERIES.INSERTATION_TABLES_ORDER(schema));
-                ResultSet reader = tablesOrder.executeQuery();
-                List<String> orderedTableList = new ArrayList<>();
-                while (reader.next()) {
-                    String tableName = reader.getString("table_name").toLowerCase().split("\\.")[1];
-                    orderedTableList.add(tableName);
-                }
-                for (JsonNode change : changes)
-                    if(!orderedTableList.contains(change.path("table").asText()))
-                        orderedTableList.add(change.path("table").asText());
+                List<String> orderedTableList = getOrderedTablesForInsert(cn, schema, changes);
                 for (String tableName : orderedTableList)
                     for (JsonNode change : changes) {
                         if (tableName.equalsIgnoreCase(change.path("table").asText())) {
@@ -446,6 +436,26 @@ public class SyncService {
         } finally {
             JDBCCloser.close(cn);
         }
+    }
+
+    private List<String> getOrderedTablesForInsert(Connection cn, String schema,
+                                                   JsonNode changes) throws SQLException {
+        PreparedStatement tablesOrder = cn.prepareStatement(QUERIES.INSERTATION_TABLES_ORDER(schema));
+        ResultSet reader = tablesOrder.executeQuery();
+        List<String> orderedTableList = new ArrayList<>();
+
+        while (reader.next()) {
+            String tableName =
+                    reader.getString("table_name").toLowerCase().split("\\.")[1];
+            orderedTableList.add(tableName);
+        }
+
+        for (JsonNode change : changes) {
+            if (!orderedTableList.contains(change.path("table").asText()))
+                orderedTableList.add(change.path("table").asText());
+        }
+
+        return orderedTableList;
     }
 
     private DatabaseTableParameter getParamForDbField(String colName, List<DatabaseTableParameter> paramList) {
