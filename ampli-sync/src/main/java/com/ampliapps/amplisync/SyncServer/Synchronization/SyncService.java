@@ -416,25 +416,28 @@ public class SyncService {
             if (changes.isArray()) {
                 List<String> orderedTableList = getOrderedTablesForInsert(cn, schema, changes);
                 for (String tableName : orderedTableList)
-                    for (JsonNode change : changes) {
-                        if (tableName.equalsIgnoreCase(change.path("table").asText())) {
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting inserts for table " + tableName);
-                            JsonNode inserts = change.path("inserts");
-                            pushInsertRecords(inserts, subscriberId, tableName, schema);
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting inserts for table " + tableName);
-                            // collecting updates
-                            JsonNode updates = change.path("updates");
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting updates.");
-                            pushUpdateRecords(updates, tableName, schema);
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting updates.");
-                        }
-                    }
-
+                    commitTableChanges(changes, tableName, schema, subscriberId);
             }
         } catch (Exception e) {
             Logs.write(Logs.Level.ERROR, "CommitChangesToDb() " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
+        }
+    }
+
+    private void commitTableChanges(JsonNode changes, String tableName, String schema, String subscriberId) {
+        for (JsonNode change : changes) {
+            if (tableName.equalsIgnoreCase(change.path("table").asText())) {
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting inserts for table " + tableName);
+                JsonNode inserts = change.path("inserts");
+                pushInsertRecords(inserts, subscriberId, tableName, schema);
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting inserts for table " + tableName);
+                // collecting updates
+                JsonNode updates = change.path("updates");
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting updates.");
+                pushUpdateRecords(updates, tableName, schema);
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting updates.");
+            }
         }
     }
 
