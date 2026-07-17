@@ -373,8 +373,21 @@ public class SyncService {
 
     private Integer startNewReception(String subscriberId, ObjectNode data, String schema) {
         Integer syncId = syncSessionRepository.startSync(subscriberId, -1, schema);
-        BufferedWriter writer = null;
+        writeReceivedData(syncId, data);
+        return syncId;
+    }
 
+    private void writeReceivedData(Integer syncId, ObjectNode data) {
+        ensureReceivedDataDirectoryExists();
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(receivedDataFile(syncId)))) {
+            writer.write(data.toPrettyString());
+        } catch (Exception e) {
+            Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
+        }
+    }
+
+    private void ensureReceivedDataDirectoryExists() {
         File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData");
         if (!theDir.exists()) {
             try {
@@ -383,23 +396,13 @@ public class SyncService {
                 Logs.write(Logs.Level.ERROR, "StartNewReception()->Creating folder ReceivedData " + se.getMessage());
             }
         }
-
-        try {
-            File recieveDataFile = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId.toString() + ".dat");
-            writer = new BufferedWriter(new FileWriter(recieveDataFile));
-            writer.write(data.toPrettyString());
-        } catch (Exception e) {
-            Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
-        } finally {
-            try {
-                writer.close();
-            } catch (Exception e) {
-                Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
-            }
-        }
-
-        return syncId;
     }
+
+    private File receivedDataFile(Integer syncId) {
+        return new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId +
+                ".dat");
+    }
+
 
     private void commitChangesToDb(ObjectNode data, String schema, String subscriberId) {
         Connection cn = Database.getInstance().GetDBConnection();
