@@ -481,17 +481,7 @@ public class SyncService {
 
             if (inserts.isArray()) {
                 for (JsonNode node : inserts) {
-                    Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-                    while (fields.hasNext()) {
-                        Map.Entry<String, JsonNode> entry = fields.next();
-                        String fieldName = entry.getKey();
-                        JsonNode value = entry.getValue();
-                        if (!fieldName.equalsIgnoreCase(SQLQueries.GET_ROWID_COLUMN_NAME())) {
-                            DatabaseTableParameter param = getParamForDbField(fieldName, paramList);
-                            if (param != null)
-                                ParseStatementParameter(insertStatement, param.ParameterOrder, fieldName, value.asText(), param);
-                        }
-                    }
+                    bindJsonFieldsToStatement(node, insertStatement, paramList, true);
                     try {
                         String rowIdValue = UUID.randomUUID().toString();
                         DatabaseTableParameter param = getParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
@@ -526,15 +516,7 @@ public class SyncService {
             PreparedStatement updateStatement = cn.prepareStatement(updateSQLQuery);
             if (updates.isArray()) {
                 for (JsonNode node : updates) {
-                    Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-                    while (fields.hasNext()) {
-                        Map.Entry<String, JsonNode> entry = fields.next();
-                        String fieldName = entry.getKey();
-                        JsonNode value = entry.getValue();
-                        DatabaseTableParameter param = getParamForDbField(fieldName, paramList);
-                        if (param != null)
-                            ParseStatementParameter(updateStatement, param.ParameterOrder, fieldName, value.asText(), param);
-                    }
+                    bindJsonFieldsToStatement(node, updateStatement, paramList, false);
                     updateStatement.addBatch();
                 }
 
@@ -546,6 +528,29 @@ public class SyncService {
             Logs.write(Logs.Level.ERROR, "PushUpdateRecords() " + currentTable + "," + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
+        }
+    }
+
+
+    private void bindJsonFieldsToStatement(
+            JsonNode node,
+            PreparedStatement statement,
+            List<DatabaseTableParameter> paramList,
+            boolean skipRowId
+    ) {
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            String fieldName = entry.getKey();
+            JsonNode value = entry.getValue();
+
+            if (!skipRowId || !fieldName.equalsIgnoreCase(SQLQueries.GET_ROWID_COLUMN_NAME())) {
+                DatabaseTableParameter param = getParamForDbField(fieldName, paramList);
+                if (param != null)
+                    ParseStatementParameter(statement, param.ParameterOrder,
+                            fieldName, value.asText(), param);
+            }
         }
     }
 
