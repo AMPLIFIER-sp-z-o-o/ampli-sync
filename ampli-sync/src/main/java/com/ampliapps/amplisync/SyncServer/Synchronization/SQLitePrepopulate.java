@@ -217,40 +217,9 @@ public class SQLitePrepopulate {
                         while (tablesData.next()) {
                             int mergeContentAction = choosePrepopulateAction(tablesData);
 
-
                             switch (mergeContentAction) {
                                 case 1://insert
-                                    Integer param = 1;
-                                    for (DatabaseTableColumn column : table.Columns) {
-                                        String columnName = column.Name;
-                                        String value = tablesData.getString(columnName);
-
-                                        if (!columnName.equalsIgnoreCase("mergeinsertsource") && !columnName.toLowerCase().contains("mergecontent_".toLowerCase())) {
-                                            switch (column.DataTypeName)
-                                            {
-                                                case "timestamp":
-                                                case "datetime2":
-                                                case "datetime":
-                                                case "date":
-                                                    if(value != null && value.length() > 10) {
-                                                        SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
-                                                        parser.setTimeZone(TimeZone.getTimeZone("UTC"));
-                                                        Date parsed = parser.parse(value);
-                                                        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                                                        value = formatter.format(parsed);
-                                                    }
-                                                    break;
-                                                case "boolean":
-                                                    if(tablesData.getBoolean(columnName))
-                                                        value = "1";
-                                                    else
-                                                        value = "0";
-                                                    break;
-                                            }
-                                            insert.setString(param, value);
-                                            param++;
-                                        }
-                                    }
+                                    bindPrepopulateInsertRow(tablesData, table, insert);
                                     insert.addBatch();
                                     batchCount++;
                                     if(batchCount == 100){
@@ -296,6 +265,46 @@ public class SQLitePrepopulate {
             }
         }
     }
+
+    private void bindPrepopulateInsertRow(
+            CachedRowSet tablesData,
+            DatabaseTable table,
+            PreparedStatement insert
+    ) throws Exception {
+        Integer param = 1;
+
+        for (DatabaseTableColumn column : table.Columns) {
+            String columnName = column.Name;
+            String value = tablesData.getString(columnName);
+
+            if (!columnName.equalsIgnoreCase("mergeinsertsource") && !columnName.toLowerCase().contains("mergecontent_".toLowerCase())) {
+                switch (column.DataTypeName)
+                {
+                    case "timestamp":
+                    case "datetime2":
+                    case "datetime":
+                    case "date":
+                        if(value != null && value.length() > 10) {
+                            SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
+                            parser.setTimeZone(TimeZone.getTimeZone("UTC"));
+                            Date parsed = parser.parse(value);
+                            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            value = formatter.format(parsed);
+                        }
+                        break;
+                    case "boolean":
+                        if(tablesData.getBoolean(columnName))
+                            value = "1";
+                        else
+                            value = "0";
+                        break;
+                }
+                insert.setString(param, value);
+                param++;
+            }
+        }
+    }
+
 
     private int choosePrepopulateAction(CachedRowSet tablesData) throws SQLException {
         int mergeContentAction = tablesData.getInt("mergecontent_action");
