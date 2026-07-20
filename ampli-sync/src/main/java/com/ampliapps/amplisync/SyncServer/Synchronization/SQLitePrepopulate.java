@@ -208,25 +208,7 @@ public class SQLitePrepopulate {
                 trDelete.executeBatch();
             }
 
-            String queryInsert = "";
-            StringBuilder insertStatment = new StringBuilder();
-
-            insertStatment.append("insert or ignore into " + tableName + " (");
-            for (DatabaseTableColumn col : table.Columns)
-                if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
-                    insertStatment.append("[" + col.Name + "]");
-                    insertStatment.append(",");
-                }
-
-            queryInsert = insertStatment.toString().substring(0, insertStatment.toString().length() - 1) + ") values (";
-            insertStatment = new StringBuilder();
-            for (DatabaseTableColumn col : table.Columns)
-                if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
-                    insertStatment.append("?");
-                    insertStatment.append(",");
-                }
-
-            queryInsert += insertStatment.toString().substring(0, insertStatment.toString().length() - 1) + ");";
+            String queryInsert = buildPrepopulateInsertQuery(table, tableName);
 
             PreparedStatement insert = connSqliteLocal.prepareStatement(queryInsert);
             Integer batchCount = 0;
@@ -368,6 +350,29 @@ public class SQLitePrepopulate {
         }
 
         return new PrepopulateFilter(view, changeDetectionCondition);
+    }
+
+    private String buildPrepopulateInsertQuery(DatabaseTable table, String tableName) {
+        StringBuilder columns = new StringBuilder();
+
+        columns.append("insert or ignore into " + tableName + " (");
+        for (DatabaseTableColumn col : table.Columns)
+            if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
+                columns.append("[" + col.Name + "]");
+                columns.append(",");
+            }
+
+        String queryInsert = columns.toString().substring(0, columns.toString().length() - 1) + ") values (";
+
+        StringBuilder values = new StringBuilder();
+        for (DatabaseTableColumn col : table.Columns)
+            if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
+                values.append("?");
+                values.append(",");
+            }
+
+        queryInsert += values.toString().substring(0, values.toString().length() - 1) + ");";
+        return queryInsert;
     }
 
     public StringBuilder BuildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
