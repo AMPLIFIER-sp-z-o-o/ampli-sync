@@ -169,29 +169,28 @@ public class SQLitePrepopulate {
         }
     }
 
+    private record PrepopulateFilter(String view, String changeDetectionCondition) {
+    }
+
     private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         SyncService syncService = new SyncService();
 
-        String filterVW = tableSchema + "." + tableName;
-        if (tableSchema == null || tableSchema.isEmpty())
-            filterVW = tableName;
+        PrepopulateFilter filter = buildPrepopulateFilter(
+                tableSchema,
+                tableName,
+                tableFilter,
+                subscriberUUID,
+                subscriberId
+        );
 
-        String filterVW_CD = " ";
-
-        if (tableFilter != null && tableFilter.trim().length() > 0) {
-            filterVW = tableFilter;
-            if(filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
-                filterVW = filterVW.replace("@incomming_uniquename", subscriberUUID);
-                filterVW_CD = " ";
-            }
-            else
-                filterVW_CD = "and vw.uniquename='" + subscriberUUID + "' ";
-            if(tableName.equalsIgnoreCase("mergeidentity"))
-                filterVW_CD += " and vw.SubscriberId= " + subscriberId + " ";
-            Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
-        }
-
-        StringBuilder query = BuildMergeQuery(tableId, subscriberId, tableName, tableSchema, filterVW, filterVW_CD);
+        StringBuilder query = BuildMergeQuery(
+                tableId,
+                subscriberId,
+                tableName,
+                tableSchema,
+                filter.view(),
+                filter.changeDetectionCondition()
+        );
 
         SchemaGenerator schemaGenerator = new SchemaGenerator();
 
@@ -336,6 +335,39 @@ public class SQLitePrepopulate {
                 EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
+    }
+
+    private PrepopulateFilter buildPrepopulateFilter(
+            String tableSchema,
+            String tableName,
+            String tableFilter,
+            String subscriberUUID,
+            String subscriberId
+    ) {
+        String view = tableSchema + "." + tableName;
+
+        if (tableSchema == null || tableSchema.isEmpty())
+            view = tableName;
+
+        String changeDetectionCondition = " ";
+
+        if (tableFilter != null && tableFilter.trim().length() > 0) {
+            view = tableFilter;
+
+            if (view.startsWith("public.fn_") || view.startsWith("fn_")) {
+                view = view.replace("@incomming_uniquename", subscriberUUID);
+                changeDetectionCondition = " ";
+            } else {
+                changeDetectionCondition = "and vw.uniquename='" + subscriberUUID + "' ";
+            }
+
+            if (tableName.equalsIgnoreCase("mergeidentity"))
+                changeDetectionCondition += " and vw.SubscriberId= " + subscriberId + " ";
+
+            Logs.write(Logs.Level.TRACE, "Using filter [" + tableFilter + "] for table " + tableName);
+        }
+
+        return new PrepopulateFilter(view, changeDetectionCondition);
     }
 
     public StringBuilder BuildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
