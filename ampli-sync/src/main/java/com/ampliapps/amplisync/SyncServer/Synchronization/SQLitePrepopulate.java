@@ -220,12 +220,7 @@ public class SQLitePrepopulate {
                             switch (mergeContentAction) {
                                 case 1://insert
                                     bindPrepopulateInsertRow(tablesData, table, insert);
-                                    insert.addBatch();
-                                    batchCount++;
-                                    if(batchCount == 100){
-                                        batchCount = 0;
-                                        insert.executeBatch();
-                                    }
+                                    batchCount = addInsertToBatch(insert, batchCount);
                                     break;
                             }
                         }
@@ -264,6 +259,18 @@ public class SQLitePrepopulate {
                 EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
+    }
+
+    private int addInsertToBatch(PreparedStatement insert, int batchCount) throws SQLException {
+        insert.addBatch();
+        batchCount++;
+
+        if(batchCount == 100){
+            batchCount = 0;
+            insert.executeBatch();
+        }
+
+        return batchCount;
     }
 
     private void bindPrepopulateInsertRow(
