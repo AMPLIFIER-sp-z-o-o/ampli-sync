@@ -481,29 +481,43 @@ public class SyncService {
 
             if (inserts.isArray()) {
                 for (JsonNode node : inserts) {
-                    bindJsonFieldsToStatement(node, insertStatement, paramList, true);
-                    try {
-                        String rowIdValue = UUID.randomUUID().toString();
-                        DatabaseTableParameter param = getParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
-                        insertStatement.setString(param.ParameterOrder, rowIdValue);
-                        insertStatement.execute();
-
-                        mergeContent.setInt(1, Integer.parseInt(subscriber));
-                        mergeContent.setString(2, rowIdValue);
-                        mergeContent.setTimestamp(3, new java.sql.Timestamp(new Date().getTime()));
-                        mergeContent.setInt(4, 1);//action
-                        mergeContent.setInt(5, 0);//syncId
-                        mergeContent.setBoolean(6, true);//record_has_changed
-                        mergeContent.execute();
-                    } catch (SQLException e) {
-                        Logs.write(Logs.Level.ERROR, "PushInsertRecords()->Execute insert: " + e.getMessage() + "; " + insertStatement);
-                    }
+                    pushInsertRecord(node, subscriber, insertStatement, mergeContent,
+                            paramList);
                 }
             }
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "PushInsertRecords() " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
+        }
+    }
+
+    private void pushInsertRecord(
+            JsonNode node,
+            String subscriber,
+            PreparedStatement insertStatement,
+            PreparedStatement mergeContent,
+            List<DatabaseTableParameter> paramList
+    ) {
+        bindJsonFieldsToStatement(node, insertStatement, paramList, true);
+
+        try {
+            String rowIdValue = UUID.randomUUID().toString();
+            DatabaseTableParameter param =
+                    getParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
+            insertStatement.setString(param.ParameterOrder, rowIdValue);
+            insertStatement.execute();
+
+            mergeContent.setInt(1, Integer.parseInt(subscriber));
+            mergeContent.setString(2, rowIdValue);
+            mergeContent.setTimestamp(3, new java.sql.Timestamp(new Date().getTime()));
+            mergeContent.setInt(4, 1);
+            mergeContent.setInt(5, 0);
+            mergeContent.setBoolean(6, true);
+            mergeContent.execute();
+        } catch (SQLException e) {
+            Logs.write(Logs.Level.ERROR, "PushInsertRecords()->Execute insert: " +
+                    e.getMessage() + "; " + insertStatement);
         }
     }
 
@@ -559,21 +573,26 @@ public class SyncService {
         try {
             if (deletes.isArray()) {
                 for (JsonNode node : deletes) {
-                    String rowid = node.path("rowid").asText();
-                    String tableId = node.path("table").asText();
-                    String deleteQuery = "delete from " + schema + "." + tableId + " where rowid='" + rowid + "'";
-                    try {
-                        Statement deleteStatment = cn.createStatement();
-                        deleteStatment.executeUpdate(deleteQuery);
-                    } catch (SQLException e) {
-                        Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
-                    }
+                    pushDeletedRecord(cn, node, schema);
                 }
             }
         } catch (Exception e) {
             Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
+        }
+    }
+
+    private void pushDeletedRecord(Connection cn, JsonNode node, String schema) {
+        String rowid = node.path("rowid").asText();
+        String tableId = node.path("table").asText();
+        String deleteQuery = "delete from " + schema + "." + tableId + " where rowid='" + rowid + "'";
+
+        try {
+            Statement deleteStatement = cn.createStatement();
+            deleteStatement.executeUpdate(deleteQuery);
+        } catch (SQLException e) {
+            Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
         }
     }
 
