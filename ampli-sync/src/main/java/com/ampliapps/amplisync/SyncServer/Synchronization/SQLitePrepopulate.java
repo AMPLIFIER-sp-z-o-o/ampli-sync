@@ -215,16 +215,10 @@ public class SQLitePrepopulate {
                         tablesData.populate(rs);
                         tablesData.beforeFirst();
                         while (tablesData.next()) {
-                            Integer MergeContent_Action = tablesData.getInt("mergecontent_action");
-                            if (MergeContent_Action != 3) {
-                                Date d = tablesData.getDate("mergecontent_changedate");
-                                if (MergeContent_Action == -1 && tablesData.wasNull())
-                                    MergeContent_Action = 1;
-                                else
-                                    MergeContent_Action = 2;
-                            }
+                            int mergeContentAction = choosePrepopulateAction(tablesData);
 
-                            switch (MergeContent_Action) {
+
+                            switch (mergeContentAction) {
                                 case 1://insert
                                     Integer param = 1;
                                     for (DatabaseTableColumn column : table.Columns) {
@@ -301,6 +295,20 @@ public class SQLitePrepopulate {
                 EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
+    }
+
+    private int choosePrepopulateAction(CachedRowSet tablesData) throws SQLException {
+        int mergeContentAction = tablesData.getInt("mergecontent_action");
+
+        if (mergeContentAction != 3) {
+            tablesData.getDate("mergecontent_changedate");
+            if (mergeContentAction == -1 && tablesData.wasNull())
+                mergeContentAction = 1;
+            else
+                mergeContentAction = 2;
+        }
+
+        return mergeContentAction;
     }
 
     private void dropPrepopulateTriggers(String tableName) throws SQLException {
