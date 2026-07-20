@@ -200,13 +200,7 @@ public class SQLitePrepopulate {
 
             DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableName, tableSchema);
 
-            Statement trDelete = connSqliteLocal.createStatement();
-            if (!tableName.equalsIgnoreCase("mergeidentity")) {
-                trDelete.addBatch("drop trigger if exists \"trMergeInsert_" + tableName + "\"");
-                trDelete.addBatch("drop trigger if exists \"trMergeUpdate_" + tableName + "\"");
-                trDelete.addBatch("drop trigger if exists \"trMergeDelete_" + tableName + "\"");
-                trDelete.executeBatch();
-            }
+            dropPrepopulateTriggers(tableName);
 
             String queryInsert = buildPrepopulateInsertQuery(table, tableName);
 
@@ -287,18 +281,8 @@ public class SQLitePrepopulate {
                 insert.executeBatch();
             }
 
-            Statement trCreate = connSqliteLocal.createStatement();
-            if (!tableName.equalsIgnoreCase("MergeIdentity")) {
-                String q = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
-                if(q.trim().length() > 0)
-                    trCreate.addBatch(q);
+            createPrepopulateTriggers(schemaGenerator, table, tableName);
 
-                q = schemaGenerator.CreateDeleteTrigger(table);
-                if(q.trim().length() > 0)
-                    trCreate.addBatch(q);
-
-                trCreate.executeBatch();
-            }
             Integer syncId = syncService.StartNewSync(
                     subscriberId,
                     Integer.parseInt(tableId),
@@ -316,6 +300,30 @@ public class SQLitePrepopulate {
             if(tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
                 EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
+        }
+    }
+
+    private void dropPrepopulateTriggers(String tableName) throws SQLException {
+        Statement trDelete = connSqliteLocal.createStatement();
+        if (!tableName.equalsIgnoreCase("mergeidentity")) {
+            trDelete.addBatch("drop trigger if exists \"trMergeInsert_" + tableName + "\"");
+            trDelete.addBatch("drop trigger if exists \"trMergeUpdate_" + tableName + "\"");
+            trDelete.addBatch("drop trigger if exists \"trMergeDelete_" + tableName + "\"");
+            trDelete.executeBatch();
+        }
+    }
+    private void createPrepopulateTriggers(SchemaGenerator schemaGenerator, DatabaseTable table, String tableName) throws SQLException {
+        Statement trCreate = connSqliteLocal.createStatement();
+        if (!tableName.equalsIgnoreCase("MergeIdentity")) {
+            String q = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
+            if(q.trim().length() > 0)
+                trCreate.addBatch(q);
+
+            q = schemaGenerator.CreateDeleteTrigger(table);
+            if(q.trim().length() > 0)
+                trCreate.addBatch(q);
+
+            trCreate.executeBatch();
         }
     }
 
