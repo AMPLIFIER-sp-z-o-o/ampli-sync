@@ -21,7 +21,6 @@ public class SQLitePrepopulate {
 
     private SQLQueries QUERIES = new SQLQueries();
     String dbTempFolderName = UUID.randomUUID().toString();
-    private CachedRowSet tablesData = null;
     Connection connSqliteLocal = null;
     private Integer tablePackageCount = 1;
 
@@ -174,6 +173,7 @@ public class SQLitePrepopulate {
 
     private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         SyncService syncService = new SyncService();
+        CachedRowSet tablesData = null;
 
         PrepopulateFilter filter = buildPrepopulateFilter(
                 tableSchema,
