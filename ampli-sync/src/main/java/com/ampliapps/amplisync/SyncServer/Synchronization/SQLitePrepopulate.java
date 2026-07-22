@@ -43,26 +43,8 @@ public class SQLitePrepopulate {
         Logs.write(Logs.Level.INFO, "PrepopulateDatabase subscriberUUID " + subscriberUUID + ", deviceUUID " + deviceUUID);
         String path = SQLiteSyncConfig.WORKING_DIR + "sqlite-databases";
         String userSchema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
-        CommonTools.DeleteFoldersOlderThanNdays(SQLiteSyncConfig.HISTORY_DAYS, path);
-        File theDir = new File(path);
-        if (!theDir.exists()) {
-            try{
-                theDir.mkdir();
-            }
-            catch(SecurityException se){
-                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating folder sqlite-databases " + se.getMessage());
-            }
-        }
 
-        File theTempDir = new File(SQLiteSyncConfig.WORKING_DIR + "sqlite-databases/" + dbTempFolderName);
-        if (!theTempDir.exists()) {
-            try{
-                theTempDir.mkdir();
-            }
-            catch(SecurityException se){
-                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating temp in folder sqlite-databases " + se.getMessage());
-            }
-        }
+        preparePrepopulateDirectories(path);
 
         CommonTools commonTools = new CommonTools();
         if (commonTools.GetSynchronizedTablesCount(userSchema) == 0) {
@@ -76,19 +58,54 @@ public class SQLitePrepopulate {
         for(Map.Entry<Integer, String> entry : tablesList.entrySet())
             populateTable(subscriberUUID, entry.getValue(), deviceUUID);
 
-        Statement stmt = null;
-        String dbFilePath = String.format("%1$ssqlite-databases/%2$s/amperflow.db", SQLiteSyncConfig.WORKING_DIR, dbTempFolderName);
-        try {
-            stmt = connSqliteLocal.createStatement();
-            stmt.executeUpdate("backup to " + dbFilePath);
-            stmt.close();
-        } catch (Exception e) {
-            Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->backup to " + e.getMessage());
-        }
+        String dbFilePath = backupPrepopulateDatabase();
 
         if(connSqliteLocal != null)
             JDBCCloser.close(connSqliteLocal);
 
+        return zipPrepopulateDatabase(dbFilePath, commonTools);
+
+    }
+
+    private void preparePrepopulateDirectories(String path) {
+        CommonTools.DeleteFoldersOlderThanNdays(SQLiteSyncConfig.HISTORY_DAYS, path);
+
+        File theDir = new File(path);
+        if (!theDir.exists()) {
+            try {
+                theDir.mkdir();
+            } catch (SecurityException se) {
+                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating folder sqlite-databases " + se.getMessage());
+            }
+        }
+
+        File theTempDir = new File(SQLiteSyncConfig.WORKING_DIR + "sqlite-databases/" + dbTempFolderName);
+        if (!theTempDir.exists()) {
+            try {
+                theTempDir.mkdir();
+            } catch (SecurityException se) {
+                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating temp in folder sqlite-databases " + se.getMessage());
+            }
+        }
+    }
+
+    private String backupPrepopulateDatabase() {
+        String dbFilePath = String.format(
+                "%1$ssqlite-databases/%2$s/amperflow.db",
+                SQLiteSyncConfig.WORKING_DIR,
+                dbTempFolderName
+        );
+
+        try (Statement stmt = connSqliteLocal.createStatement()) {
+            stmt.executeUpdate("backup to " + dbFilePath);
+        } catch (Exception e) {
+            Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->backup to " + e.getMessage());
+        }
+
+        return dbFilePath;
+    }
+
+    private String zipPrepopulateDatabase(String dbFilePath, CommonTools commonTools) {
         File sqliteDb = new File(dbFilePath);
         commonTools.AddFileToZip(new File(dbFilePath + ".zip"), sqliteDb);
         sqliteDb.delete();
