@@ -3,7 +3,7 @@ package com.ampliapps.amplisync.SyncServer.Synchronization;
 import com.ampliapps.amplisync.SQLiteSyncConfig;
 
 final class PullQueryBuilder {
-    public StringBuilder buildInsertChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
+    StringBuilder buildInsertChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
         StringBuilder query = new StringBuilder();
         String topLimit = "";
         if (SQLiteSyncConfig.PACKAGE_SIZE != null && !SQLiteSyncConfig.PACKAGE_SIZE.isEmpty())
@@ -32,7 +32,7 @@ final class PullQueryBuilder {
         return query;
     }
 
-    public StringBuilder buildUpdateChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD) {
+    StringBuilder buildUpdateChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD) {
         StringBuilder query = new StringBuilder();
         String topLimit = "";
         if (SQLiteSyncConfig.PACKAGE_SIZE != null && !SQLiteSyncConfig.PACKAGE_SIZE.isEmpty())
@@ -56,7 +56,7 @@ final class PullQueryBuilder {
         return query;
     }
 
-    public StringBuilder buildDeleteChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
+    StringBuilder buildDeleteChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
         StringBuilder query = new StringBuilder();
         query.append("select  ");
         query.append("m.rowid ");

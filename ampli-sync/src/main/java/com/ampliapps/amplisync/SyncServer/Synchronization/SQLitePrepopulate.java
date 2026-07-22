@@ -24,7 +24,7 @@ public class SQLitePrepopulate {
     private Connection connSqliteLocal = null;
     private Integer tablePackageCount = 1;
 
-    private Connection sQLiteConnection(String deviceUUID) {
+    private Connection sqliteConnection(String deviceUUID) {
 
         Connection conn = null;
         try {
@@ -39,7 +39,7 @@ public class SQLitePrepopulate {
 
     }
 
-    public String PrepopulateDatabase(String subscriberUUID, String deviceUUID){
+    public String PrepopulateDatabase(String subscriberUUID, String deviceUUID) {
         Logs.write(Logs.Level.INFO, "PrepopulateDatabase subscriberUUID " + subscriberUUID + ", deviceUUID " + deviceUUID);
         String path = SQLiteSyncConfig.WORKING_DIR + "sqlite-databases";
         String userSchema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
@@ -55,12 +55,12 @@ public class SQLitePrepopulate {
         String dbSchema = schemaGenerator.GetFullSchematScript(subscriberUUID, deviceUUID);
         createEmptyDatabase(deviceUUID, dbSchema);
         Map<Integer, String> tablesList = commonTools.GetSynchronizedTables(userSchema);
-        for(Map.Entry<Integer, String> entry : tablesList.entrySet())
+        for (Map.Entry<Integer, String> entry : tablesList.entrySet())
             populateTable(subscriberUUID, entry.getValue(), deviceUUID);
 
         String dbFilePath = backupPrepopulateDatabase();
 
-        if(connSqliteLocal != null)
+        if (connSqliteLocal != null)
             JDBCCloser.close(connSqliteLocal);
 
         return zipPrepopulateDatabase(dbFilePath, commonTools);
@@ -124,21 +124,18 @@ public class SQLitePrepopulate {
             mapper = null;
         }
 
-        connSqliteLocal = sQLiteConnection(deviceUUID);
-        try
-        {
+        connSqliteLocal = sqliteConnection(deviceUUID);
+        try {
             Statement statement = connSqliteLocal.createStatement();
 
             SortedSet<String> keys = new TreeSet<>(schema.keySet());
             for (String key : keys) {
-                if(!key.startsWith("00000")) {
+                if (!key.startsWith("00000")) {
                     String value = schema.get(key);
                     statement.execute(value);
                 }
             }
-        }
-        catch(SQLException e)
-        {
+        } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "CreateEmptyDatabase() " + e.getMessage());
         }
     }
@@ -159,7 +156,7 @@ public class SQLitePrepopulate {
             PrepopulateTableDefinition tableDefinition = findPrepopulateTable(cn, name, userSchema);
 
             if (tableDefinition != null) {
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + tableDefinition.tableName());
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + tableDefinition.tableName());
                 tablePackageCount = 1;
                 enumerateChanges(
                         tableDefinition.tableId(),
@@ -280,7 +277,7 @@ public class SQLitePrepopulate {
                         }
 
                     } catch (Exception e) {
-                        Logs.write(Logs.Level.ERROR, "EnumerateChanges()->record iterate: "+ tableName+". " + e.getMessage());
+                        Logs.write(Logs.Level.ERROR, "EnumerateChanges()->record iterate: " + tableName + ". " + e.getMessage());
                     }
                 }
 

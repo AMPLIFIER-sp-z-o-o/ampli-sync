@@ -12,7 +12,7 @@ import java.sql.Statement;
 final class SyncSessionRepository {
     private final SQLQueries QUERIES = new SQLQueries();
 
-    public Integer startSync(String subscriberId, Integer tableId, String schema) {
+    Integer startSync(String subscriberId, Integer tableId, String schema) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             Integer id = 0;
@@ -46,7 +46,7 @@ final class SyncSessionRepository {
         return 0;
     }
 
-    public void finishSync(String syncId, String schema) {
+    void finishSync(String syncId, String schema) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             PreparedStatement query = cn.prepareStatement(QUERIES.COMMIT_SYNC_UPDATE(schema));

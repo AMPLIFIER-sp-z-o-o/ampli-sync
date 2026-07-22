@@ -18,7 +18,7 @@ import java.sql.Statement;
 final class PullChangeEnumerator {
     private final SyncRecordMapper recordMapper = new SyncRecordMapper();
 
-    public PullChangeSet enumerate(StringBuilder queryInserts, StringBuilder queryUpdates, StringBuilder queryDeletes) {
+    PullChangeSet enumerate(StringBuilder queryInserts, StringBuilder queryUpdates, StringBuilder queryDeletes) {
         PullChangeSet changeSet = new PullChangeSet();
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode root = mapper.createObjectNode();

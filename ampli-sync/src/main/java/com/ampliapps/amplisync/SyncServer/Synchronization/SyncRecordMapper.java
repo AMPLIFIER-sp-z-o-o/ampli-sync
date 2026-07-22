@@ -13,7 +13,7 @@ import java.util.Date;
 
 final class SyncRecordMapper {
 
-    public void writeColumn(ObjectNode record, String columnName, String colDataType, String colValue, Boolean wasNull) {
+    void writeColumn(ObjectNode record, String columnName, String colDataType, String colValue, Boolean wasNull) {
         record.put(columnName, 1);
         if (colDataType.equalsIgnoreCase("Boolean") || colDataType.equalsIgnoreCase("bool") || colDataType.equalsIgnoreCase("bit")) {
             if (colValue == null || colValue.isEmpty() || colValue.equalsIgnoreCase("False"))

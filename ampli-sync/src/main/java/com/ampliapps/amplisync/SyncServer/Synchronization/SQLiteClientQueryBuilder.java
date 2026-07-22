@@ -1,7 +1,7 @@
 package com.ampliapps.amplisync.SyncServer.Synchronization;
 
 final class SQLiteClientQueryBuilder {
-    public void buildQueries(DataObject tableSync, String tableSchema) {
+    void buildQueries(DataObject tableSync, String tableSchema) {
         String tableNameClear = tableSync.TableName;
 
         DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableNameClear, tableSchema);
