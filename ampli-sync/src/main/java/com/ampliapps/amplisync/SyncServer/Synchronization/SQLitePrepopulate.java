@@ -159,7 +159,7 @@ public class SQLitePrepopulate {
             PrepopulateTableDefinition tableDefinition = findPrepopulateTable(cn, name, userSchema);
 
             if (tableDefinition != null) {
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + tableDefinition.tableName);
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + tableDefinition.tableName());
                 tablePackageCount = 1;
                 enumerateChanges(
                         tableDefinition.tableId(),
@@ -170,7 +170,7 @@ public class SQLitePrepopulate {
                         subscriberUUID
                 );
 
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + tableDefinition.tableName + " done");
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + tableDefinition.tableName() + " done");
             } else
                 Logs.write(Logs.Level.TRACE, "DoSync(). Table " + userSchema + "." + table + " was not found in MergeTablesToSync.");
 
