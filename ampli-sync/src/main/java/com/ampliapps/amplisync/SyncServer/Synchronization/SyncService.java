@@ -113,8 +113,8 @@ public class SyncService {
 
         stopwatch.stop();
         Long stopwatchMilisecs  = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-        if(stopwatchMilisecs > 400)
-            if(dataToSync.get(0).RowsCount.isEmpty())
+        if (stopwatchMilisecs > 400)
+            if (dataToSync.get(0).RowsCount.isEmpty())
                 Logs.write(Logs.Level.WARN, "Getting changes for subscriber ["+deviceUUID+"]/[" + subscriberId + "] and table [" + tableName + "], no changes. Time elapsed: "+ stopwatchMilisecs);
             else
                 Logs.write(Logs.Level.WARN, "Getting changes for subscriber ["+deviceUUID+"]/[" + subscriberId + "] and table [" + tableName + "], records count [" + dataToSync.get(0).RowsCount + "/" + dataToSync.get(0).MaxPackageSize + "]. Time elapsed: "+ stopwatchMilisecs);
@@ -562,7 +562,7 @@ public class SyncService {
             if (!skipRowId || !fieldName.equalsIgnoreCase(SQLQueries.GET_ROWID_COLUMN_NAME())) {
                 DatabaseTableParameter param = getParamForDbField(fieldName, paramList);
                 if (param != null)
-                    ParseStatementParameter(statement, param.ParameterOrder,
+                    parseStatementParameter(statement, param.ParameterOrder,
                             fieldName, value.asText(), param);
             }
         }
@@ -596,7 +596,7 @@ public class SyncService {
         }
     }
 
-    private void ParseStatementParameter(PreparedStatement insertStatement, Integer colNumber, String colName, String colValue, Object paramDef) {
+    private void parseStatementParameter(PreparedStatement insertStatement, Integer colNumber, String colName, String colValue, Object paramDef) {
 
         if (colValue == null || colValue.equalsIgnoreCase("null"))
             colValue = "";
@@ -837,16 +837,15 @@ public class SyncService {
                     break;
             }
         } catch (SQLException | ParseException e) {
-            String recieveDataStatmentDesc = insertStatement.toString();
-            Logs.write(Logs.Level.INFO, "ParseStatmentParameter()->" +colName +", ["+recieveDataStatmentDesc+"] ," + e.getMessage());
+            String receivedDataStatementDesc = insertStatement.toString();
+            Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + colName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
         }
     }
 
     private void setDefaultsForParams(PreparedStatement insertStatement, String currentTable, List<DatabaseTableParameter> paramList) {
-        for(DatabaseTableParameter parameter: paramList)
-        {
+        for (DatabaseTableParameter parameter : paramList) {
             DatabaseTableParameter param = getParamForDbField(parameter.ParameterName, paramList);
-            ParseStatementParameter(insertStatement, param.ParameterOrder,  parameter.ParameterName, null, param);
+            parseStatementParameter(insertStatement, param.ParameterOrder, parameter.ParameterName, null, param);
         }
     }
 }

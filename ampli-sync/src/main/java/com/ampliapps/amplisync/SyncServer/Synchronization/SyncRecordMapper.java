@@ -29,7 +29,7 @@ final class SyncRecordMapper {
             DateFormat format = new SimpleDateFormat(SQLiteSyncConfig.DATE_FORMAT);
             if (colValue != null && !colValue.isEmpty()) {
                 try {
-                    if(colValue.trim().length() == 10)
+                    if (colValue.trim().length() == 10)
                         colValue += " 00:00:00";
                     Date date = format.parse(colValue);
                     record.put(columnName, format.format(date));
