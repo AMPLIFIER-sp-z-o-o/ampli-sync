@@ -364,17 +364,30 @@ public class SyncService {
             return;
         }
 
-        Integer syncId = StartNewReception(subscriberId, receivedData, schema);
+        Integer syncId = startNewReception(subscriberId, receivedData, schema);
 
-        CommitChangesToDb(receivedData, schema, subscriberId);
+        commitChangesToDb(receivedData, schema, subscriberId);
         syncSessionRepository.finishSync(syncId.toString(), schema);
         Logs.write(Logs.Level.INFO, "Finished receiving data from subscriber " + subscriberUUID);
     }
 
-    private Integer StartNewReception(String subscriberId, ObjectNode data, String schema) {
+    private Integer startNewReception(String subscriberId, ObjectNode data, String schema) {
         Integer syncId = syncSessionRepository.startSync(subscriberId, -1, schema);
-        BufferedWriter writer = null;
+        writeReceivedData(syncId, data);
+        return syncId;
+    }
 
+    private void writeReceivedData(Integer syncId, ObjectNode data) {
+        ensureReceivedDataDirectoryExists();
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(receivedDataFile(syncId)))) {
+            writer.write(data.toPrettyString());
+        } catch (Exception e) {
+            Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
+        }
+    }
+
+    private void ensureReceivedDataDirectoryExists() {
         File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData");
         if (!theDir.exists()) {
             try {
@@ -383,60 +396,27 @@ public class SyncService {
                 Logs.write(Logs.Level.ERROR, "StartNewReception()->Creating folder ReceivedData " + se.getMessage());
             }
         }
-
-        try {
-            File recieveDataFile = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId.toString() + ".dat");
-            writer = new BufferedWriter(new FileWriter(recieveDataFile));
-            writer.write(data.toPrettyString());
-        } catch (Exception e) {
-            Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
-        } finally {
-            try {
-                writer.close();
-            } catch (Exception e) {
-                Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
-            }
-        }
-
-        return syncId;
     }
 
-    private void CommitChangesToDb(ObjectNode data, String schema, String subscriberId) {
+    private File receivedDataFile(Integer syncId) {
+        return new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId + ".dat");
+    }
+
+
+    private void commitChangesToDb(ObjectNode data, String schema, String subscriberId) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting deleted records.");
             JsonNode deletes = data.path("deletes");
-            PushDeletedRecords(deletes, schema);
+            pushDeletedRecords(deletes, schema);
             Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting deleted records.");
 
             // collecting inserts
             JsonNode changes = data.path("changes");
             if (changes.isArray()) {
-                PreparedStatement tablesOrder = cn.prepareStatement(QUERIES.INSERTATION_TABLES_ORDER(schema));
-                ResultSet reader = tablesOrder.executeQuery();
-                List<String> orderedTableList = new ArrayList<>();
-                while (reader.next()) {
-                    String tableName = reader.getString("table_name").toLowerCase().split("\\.")[1];
-                    orderedTableList.add(tableName);
-                }
-                for (JsonNode change : changes)
-                    if(!orderedTableList.contains(change.path("table").asText()))
-                        orderedTableList.add(change.path("table").asText());
+                List<String> orderedTableList = getOrderedTablesForInsert(cn, schema, changes);
                 for (String tableName : orderedTableList)
-                    for (JsonNode change : changes) {
-                        if (tableName.equalsIgnoreCase(change.path("table").asText())) {
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting inserts for table " + tableName);
-                            JsonNode inserts = change.path("inserts");
-                            PushInsertRecords(inserts, subscriberId, tableName, schema);
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting inserts for table " + tableName);
-                            // collecting updates
-                            JsonNode updates = change.path("updates");
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting updates.");
-                            PushUpdateRecords(updates, tableName, schema);
-                            Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting updates.");
-                        }
-                    }
-
+                    commitTableChanges(changes, tableName, schema, subscriberId);
             }
         } catch (Exception e) {
             Logs.write(Logs.Level.ERROR, "CommitChangesToDb() " + e.getMessage());
@@ -445,14 +425,50 @@ public class SyncService {
         }
     }
 
-    private DatabaseTableParameter GetParamForDbField(String colName, List<DatabaseTableParameter> paramList) {
+    private void commitTableChanges(JsonNode changes, String tableName, String schema, String subscriberId) {
+        for (JsonNode change : changes) {
+            if (tableName.equalsIgnoreCase(change.path("table").asText())) {
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting inserts for table " + tableName);
+                JsonNode inserts = change.path("inserts");
+                pushInsertRecords(inserts, subscriberId, tableName, schema);
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting inserts for table " + tableName);
+                // collecting updates
+                JsonNode updates = change.path("updates");
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting updates.");
+                pushUpdateRecords(updates, tableName, schema);
+                Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting updates.");
+            }
+        }
+    }
+
+    private List<String> getOrderedTablesForInsert(Connection cn, String schema,
+                                                   JsonNode changes) throws SQLException {
+        PreparedStatement tablesOrder = cn.prepareStatement(QUERIES.INSERTATION_TABLES_ORDER(schema));
+        ResultSet reader = tablesOrder.executeQuery();
+        List<String> orderedTableList = new ArrayList<>();
+
+        while (reader.next()) {
+            String tableName =
+                    reader.getString("table_name").toLowerCase().split("\\.")[1];
+            orderedTableList.add(tableName);
+        }
+
+        for (JsonNode change : changes) {
+            if (!orderedTableList.contains(change.path("table").asText()))
+                orderedTableList.add(change.path("table").asText());
+        }
+
+        return orderedTableList;
+    }
+
+    private DatabaseTableParameter getParamForDbField(String colName, List<DatabaseTableParameter> paramList) {
         for (DatabaseTableParameter p : paramList)
             if (p.ParameterName.equalsIgnoreCase(colName))
                 return p;
         return null;
     }
 
-    private void PushInsertRecords(JsonNode inserts, String subscriber, String currentTable, String tableSchema) {
+    private void pushInsertRecords(JsonNode inserts, String subscriber, String currentTable, String tableSchema) {
         SchemaGenerator schemaGen = new SchemaGenerator();
         String insertSQLQuery = schemaGen.CreateInsertStatementWithParams(currentTable, tableSchema);
         List<DatabaseTableParameter> paramList = schemaGen.GetStatmentParams(currentTable, true, tableSchema, 1);
@@ -461,7 +477,7 @@ public class SyncService {
             cn.setAutoCommit(true);
             PreparedStatement insertStatement = cn.prepareStatement(insertSQLQuery);
             PreparedStatement mergeContent = cn.prepareStatement(QUERIES.INSERT_MERGE_CONTENT(tableSchema, currentTable));
-            SetDefaultsForParams(insertStatement, currentTable, paramList);
+            setDefaultsForParams(insertStatement, currentTable, paramList);
 
             if (inserts.isArray()) {
                 for (JsonNode node : inserts) {
@@ -471,14 +487,14 @@ public class SyncService {
                         String fieldName = entry.getKey();
                         JsonNode value = entry.getValue();
                         if (!fieldName.equalsIgnoreCase(SQLQueries.GET_ROWID_COLUMN_NAME())) {
-                            DatabaseTableParameter param = GetParamForDbField(fieldName, paramList);
+                            DatabaseTableParameter param = getParamForDbField(fieldName, paramList);
                             if (param != null)
                                 ParseStatementParameter(insertStatement, param.ParameterOrder, fieldName, value.asText(), param);
                         }
                     }
                     try {
                         String rowIdValue = UUID.randomUUID().toString();
-                        DatabaseTableParameter param = GetParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
+                        DatabaseTableParameter param = getParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
                         insertStatement.setString(param.ParameterOrder, rowIdValue);
                         insertStatement.execute();
 
@@ -501,7 +517,7 @@ public class SyncService {
         }
     }
 
-    private void PushUpdateRecords(JsonNode updates, String currentTable, String tableSchema) {
+    private void pushUpdateRecords(JsonNode updates, String currentTable, String tableSchema) {
         SchemaGenerator schemaGen = new SchemaGenerator();
         String updateSQLQuery = schemaGen.CreateUpdateStatmentWithParams(currentTable, tableSchema);
         List<DatabaseTableParameter> paramList = schemaGen.GetStatmentParams(currentTable, false, tableSchema, 2);
@@ -515,7 +531,7 @@ public class SyncService {
                         Map.Entry<String, JsonNode> entry = fields.next();
                         String fieldName = entry.getKey();
                         JsonNode value = entry.getValue();
-                        DatabaseTableParameter param = GetParamForDbField(fieldName, paramList);
+                        DatabaseTableParameter param = getParamForDbField(fieldName, paramList);
                         if (param != null)
                             ParseStatementParameter(updateStatement, param.ParameterOrder, fieldName, value.asText(), param);
                     }
@@ -533,7 +549,7 @@ public class SyncService {
         }
     }
 
-    private void PushDeletedRecords(JsonNode deletes, String schema) {
+    private void pushDeletedRecords(JsonNode deletes, String schema) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             if (deletes.isArray()) {
@@ -802,10 +818,10 @@ public class SyncService {
         }
     }
 
-    private void SetDefaultsForParams(PreparedStatement insertStatement, String currentTable, List<DatabaseTableParameter> paramList) {
+    private void setDefaultsForParams(PreparedStatement insertStatement, String currentTable, List<DatabaseTableParameter> paramList) {
         for(DatabaseTableParameter parameter: paramList)
         {
-            DatabaseTableParameter param = GetParamForDbField(parameter.ParameterName, paramList);
+            DatabaseTableParameter param = getParamForDbField(parameter.ParameterName, paramList);
             ParseStatementParameter(insertStatement, param.ParameterOrder,  parameter.ParameterName, null, param);
         }
     }
