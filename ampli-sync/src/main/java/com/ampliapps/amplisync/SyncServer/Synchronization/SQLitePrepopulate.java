@@ -19,12 +19,12 @@ import javax.sql.rowset.CachedRowSet;
 
 public class SQLitePrepopulate {
 
-    private SQLQueries QUERIES = new SQLQueries();
-    String dbTempFolderName = UUID.randomUUID().toString();
-    Connection connSqliteLocal = null;
+    private final SQLQueries QUERIES = new SQLQueries();
+    private final String dbTempFolderName = UUID.randomUUID().toString();
+    private Connection connSqliteLocal = null;
     private Integer tablePackageCount = 1;
 
-    private Connection SQLiteConnection(String deviceUUID) {
+    private Connection sQLiteConnection(String deviceUUID) {
 
         Connection conn = null;
         try {
@@ -124,7 +124,7 @@ public class SQLitePrepopulate {
             mapper = null;
         }
 
-        connSqliteLocal = SQLiteConnection(deviceUUID);
+        connSqliteLocal = sQLiteConnection(deviceUUID);
         try
         {
             Statement statement = connSqliteLocal.createStatement();
@@ -150,7 +150,7 @@ public class SQLitePrepopulate {
             String subscriberId = common.CheckIfSubscriberExists(subscriberUUID, deviceUUID).toString();
             String userSchema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
 
-            if(subscriberId.equalsIgnoreCase("-1")){
+            if (subscriberId.equalsIgnoreCase("-1")){
                 Logs.write(Logs.Level.ERROR, "Error creating new subscriber for UUID " + subscriberUUID);
             }
 
@@ -288,7 +288,7 @@ public class SQLitePrepopulate {
 
             } while (hasResults || cmd.getUpdateCount() != -1);
 
-            if(batchCount > 0 && batchCount < 100) {
+            if (batchCount > 0 && batchCount < 100) {
                 insert.executeBatch();
             }
 
@@ -308,7 +308,7 @@ public class SQLitePrepopulate {
         }
         finally {
             JDBCCloser.close(cn);
-            if(tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
+            if (tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
                 enumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
@@ -318,7 +318,7 @@ public class SQLitePrepopulate {
         insert.addBatch();
         batchCount++;
 
-        if(batchCount == 100){
+        if (batchCount == 100){
             batchCount = 0;
             insert.executeBatch();
         }
@@ -344,7 +344,7 @@ public class SQLitePrepopulate {
                     case "datetime2":
                     case "datetime":
                     case "date":
-                        if(value != null && value.length() > 10) {
+                        if (value != null && value.length() > 10) {
                             SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
                             parser.setTimeZone(TimeZone.getTimeZone("UTC"));
                             Date parsed = parser.parse(value);
@@ -353,7 +353,7 @@ public class SQLitePrepopulate {
                         }
                         break;
                     case "boolean":
-                        if(tablesData.getBoolean(columnName))
+                        if (tablesData.getBoolean(columnName))
                             value = "1";
                         else
                             value = "0";
@@ -393,11 +393,11 @@ public class SQLitePrepopulate {
         Statement trCreate = connSqliteLocal.createStatement();
         if (!tableName.equalsIgnoreCase("MergeIdentity")) {
             String q = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
-            if(q.trim().length() > 0)
+            if (q.trim().length() > 0)
                 trCreate.addBatch(q);
 
             q = schemaGenerator.CreateDeleteTrigger(table);
-            if(q.trim().length() > 0)
+            if (q.trim().length() > 0)
                 trCreate.addBatch(q);
 
             trCreate.executeBatch();
@@ -466,14 +466,14 @@ public class SQLitePrepopulate {
 
         query.append("with inserts as ( ");
         query.append("select vw.rowid ");
-        if(filterVW_CD.trim().length() > 0 || filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
+        if (filterVW_CD.trim().length() > 0 || filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
             query.append("from " + tableSchema + "." + filterVW + " vw ");
         } else {
             query.append("from " + tableSchema + "." + tableName + " vw ");
         }
         query.append("where ");
         query.append("not exists (select 1 from  " + tableSchema + ".mergecontent_" + tableName + " t where vw.rowid=t.rowid and t.subscriberId=" + subscriberId + ") ");
-        if(filterVW_CD.trim().length() > 0)
+        if (filterVW_CD.trim().length() > 0)
             query.append(" " + filterVW_CD);
         query.append(" " + topLimit + "");
         query.append(") ");
@@ -486,7 +486,7 @@ public class SQLitePrepopulate {
         query.append("null as MergeContent_SyncId   ");
         query.append("from " + tableSchema + "." + tableName + " tb ");
         query.append("join inserts on tb.rowid = inserts.rowid ");
-        if(tableName.equalsIgnoreCase("mergeidentity"))
+        if (tableName.equalsIgnoreCase("mergeidentity"))
             query.append("and tb.subscriberid =" + subscriberId);
 
         return query;
