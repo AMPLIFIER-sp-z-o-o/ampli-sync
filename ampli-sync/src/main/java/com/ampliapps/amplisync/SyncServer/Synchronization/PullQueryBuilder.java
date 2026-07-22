@@ -2,7 +2,7 @@ package com.ampliapps.amplisync.SyncServer.Synchronization;
 
 import com.ampliapps.amplisync.SQLiteSyncConfig;
 
-public class PullQueryBuilder {
+final class PullQueryBuilder {
     public StringBuilder buildInsertChangesQuery(String subscriberId, String tableSchema, String tableName, String filterVW, String filterVW_CD, String subscriberUUID) {
         StringBuilder query = new StringBuilder();
         String topLimit = "";

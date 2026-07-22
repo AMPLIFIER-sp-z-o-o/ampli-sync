@@ -4,7 +4,7 @@ import com.ampliapps.amplisync.SQLiteSyncConfig;
 
 import javax.sql.rowset.CachedRowSet;
 
-public class SyncSessionStore {
+final class SyncSessionStore {
 
     public void writeSyncData(String syncId, CachedRowSet inserts, CachedRowSet updates, CachedRowSet deletes) {
         BinaryWriter binaryWriter = binaryWriter();

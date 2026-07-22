@@ -1,6 +1,6 @@
 package com.ampliapps.amplisync.SyncServer.Synchronization;
 
-public class SQLiteClientQueryBuilder {
+final class SQLiteClientQueryBuilder {
     public void buildQueries(DataObject tableSync, String tableSchema) {
         String tableNameClear = tableSync.TableName;
 

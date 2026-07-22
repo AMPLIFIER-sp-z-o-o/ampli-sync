@@ -9,7 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public class SyncSessionRepository {
+final class SyncSessionRepository {
     private final SQLQueries QUERIES = new SQLQueries();
 
     public Integer startSync(String subscriberId, Integer tableId, String schema) {
