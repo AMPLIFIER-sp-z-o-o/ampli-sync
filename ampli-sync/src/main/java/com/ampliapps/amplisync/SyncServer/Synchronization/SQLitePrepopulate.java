@@ -138,25 +138,22 @@ public class SQLitePrepopulate {
             }
 
             String tableSchema = "";
+            String name = resolvePrepopulateTableName(table);
+            PrepopulateTableDefinition tableDefinition = findPrepopulateTable(cn, name, userSchema);
 
-            String[] tmp = table.split(Pattern.quote("."));
-            String name = table;
-            if (tmp.length > 1) {
-                name = tmp[tmp.length - 1];
-            }
-            String query = QUERIES.DO_SYNC_GET_TABLE(userSchema);
-            PreparedStatement tableToPublish = cn.prepareStatement(query);
-            tableToPublish.setString(1, name);
-            tableToPublish.setString(2, userSchema);
-
-            ResultSet reader = tableToPublish.executeQuery();
-            if (reader.next()) {
-                tableSchema = reader.getString("TableSchema");
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + reader.getString("TableName"));
+            if (tableDefinition != null) {
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + tableDefinition.tableName);
                 tablePackageCount = 1;
-                String tableFilter = reader.getString("TableFilter");
-                enumerateChanges(reader.getString("TableId"), subscriberId, reader.getString("TableName"), tableSchema, tableFilter, subscriberUUID);
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + reader.getString("TableName") + " done");
+                enumerateChanges(
+                        tableDefinition.tableId(),
+                        subscriberId,
+                        tableDefinition.tableName(),
+                        tableDefinition.tableSchema(),
+                        tableDefinition.tableFilter(),
+                        subscriberUUID
+                );
+
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + tableDefinition.tableName + " done");
             } else
                 Logs.write(Logs.Level.TRACE, "DoSync(). Table " + userSchema + "." + table + " was not found in MergeTablesToSync.");
 
@@ -165,6 +162,46 @@ public class SQLitePrepopulate {
         }
         finally {
             JDBCCloser.close(cn);
+        }
+    }
+
+    private String resolvePrepopulateTableName(String table) {
+        String[] tmp = table.split(Pattern.quote("."));
+        if (tmp.length > 1) {
+            return tmp[tmp.length - 1];
+        }
+
+        return table;
+    }
+
+    private record PrepopulateTableDefinition(
+            String tableId,
+            String tableName,
+            String tableSchema,
+            String tableFilter
+    ) {
+    }
+
+    private PrepopulateTableDefinition findPrepopulateTable(
+            Connection cn,
+            String tableName,
+            String userSchema
+    ) throws SQLException {
+        PreparedStatement tableToPublish = cn.prepareStatement(QUERIES.DO_SYNC_GET_TABLE(userSchema));
+        tableToPublish.setString(1, tableName);
+        tableToPublish.setString(2, userSchema);
+
+        try (ResultSet reader = tableToPublish.executeQuery()) {
+            if (!reader.next()) {
+                return null;
+            }
+
+            return new PrepopulateTableDefinition(
+                    reader.getString("TableId"),
+                    reader.getString("TableName"),
+                    reader.getString("TableSchema"),
+                    reader.getString("TableFilter")
+            );
         }
     }
 
