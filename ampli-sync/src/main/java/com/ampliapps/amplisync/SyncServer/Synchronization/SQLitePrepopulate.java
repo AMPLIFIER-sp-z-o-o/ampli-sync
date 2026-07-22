@@ -71,10 +71,10 @@ public class SQLitePrepopulate {
         commonTools.InitSync(userSchema);
         SchemaGenerator schemaGenerator = new SchemaGenerator();
         String dbSchema = schemaGenerator.GetFullSchematScript(subscriberUUID, deviceUUID);
-        CreateEmptyDatabase(deviceUUID, dbSchema);
+        createEmptyDatabase(deviceUUID, dbSchema);
         Map<Integer, String> tablesList = commonTools.GetSynchronizedTables(userSchema);
         for(Map.Entry<Integer, String> entry : tablesList.entrySet())
-            PopulateTable(subscriberUUID, entry.getValue(), deviceUUID);
+            populateTable(subscriberUUID, entry.getValue(), deviceUUID);
 
         Statement stmt = null;
         String dbFilePath = String.format("%1$ssqlite-databases/%2$s/amperflow.db", SQLiteSyncConfig.WORKING_DIR, dbTempFolderName);
@@ -95,7 +95,7 @@ public class SQLitePrepopulate {
         return dbFilePath + ".zip";
     }
 
-    private void CreateEmptyDatabase(String deviceUUID, String json) {
+    private void createEmptyDatabase(String deviceUUID, String json) {
         Map<String, String> schema = new HashMap<>();
         ObjectMapper mapper = new ObjectMapper();
         try {
@@ -126,7 +126,7 @@ public class SQLitePrepopulate {
         }
     }
 
-    public void PopulateTable(String subscriberUUID, String table, String deviceUUID) {
+    public void populateTable(String subscriberUUID, String table, String deviceUUID) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             CommonTools common = new CommonTools();
@@ -155,7 +155,7 @@ public class SQLitePrepopulate {
                 Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + reader.getString("TableName"));
                 tablePackageCount = 1;
                 String tableFilter = reader.getString("TableFilter");
-                EnumerateChanges(reader.getString("TableId"), subscriberId, reader.getString("TableName"), tableSchema, tableFilter, subscriberUUID);
+                enumerateChanges(reader.getString("TableId"), subscriberId, reader.getString("TableName"), tableSchema, tableFilter, subscriberUUID);
                 Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + reader.getString("TableName") + " done");
             } else
                 Logs.write(Logs.Level.TRACE, "DoSync(). Table " + userSchema + "." + table + " was not found in MergeTablesToSync.");
@@ -171,7 +171,7 @@ public class SQLitePrepopulate {
     private record PrepopulateFilter(String view, String changeDetectionCondition) {
     }
 
-    private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+    private void enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         SyncService syncService = new SyncService();
         CachedRowSet tablesData = null;
 
@@ -183,7 +183,7 @@ public class SQLitePrepopulate {
                 subscriberId
         );
 
-        StringBuilder query = BuildMergeQuery(
+        StringBuilder query = buildMergeQuery(
                 tableId,
                 subscriberId,
                 tableName,
@@ -234,7 +234,6 @@ public class SQLitePrepopulate {
 
             } while (hasResults || cmd.getUpdateCount() != -1);
 
-
             if(batchCount > 0 && batchCount < 100) {
                 insert.executeBatch();
             }
@@ -256,7 +255,7 @@ public class SQLitePrepopulate {
         finally {
             JDBCCloser.close(cn);
             if(tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
-                EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
+                enumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
     }
@@ -407,7 +406,7 @@ public class SQLitePrepopulate {
         return queryInsert;
     }
 
-    public StringBuilder BuildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
+    public StringBuilder buildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
         StringBuilder query = new StringBuilder();
         String topLimit = "LIMIT 5000";
 
