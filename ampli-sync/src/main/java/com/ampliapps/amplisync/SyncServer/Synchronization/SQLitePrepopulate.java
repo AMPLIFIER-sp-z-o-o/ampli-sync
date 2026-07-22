@@ -143,7 +143,7 @@ public class SQLitePrepopulate {
         }
     }
 
-    public void populateTable(String subscriberUUID, String table, String deviceUUID) {
+    private void populateTable(String subscriberUUID, String table, String deviceUUID) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             CommonTools common = new CommonTools();
@@ -460,7 +460,7 @@ public class SQLitePrepopulate {
         return queryInsert;
     }
 
-    public StringBuilder buildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
+    private StringBuilder buildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
         StringBuilder query = new StringBuilder();
         String topLimit = "LIMIT 5000";
 
