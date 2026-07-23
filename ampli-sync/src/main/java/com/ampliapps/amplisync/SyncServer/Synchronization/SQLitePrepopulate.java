@@ -21,7 +21,6 @@ public class SQLitePrepopulate {
 
     private SQLQueries QUERIES = new SQLQueries();
     String dbTempFolderName = UUID.randomUUID().toString();
-    private CachedRowSet tablesData = null;
     Connection connSqliteLocal = null;
     private Integer tablePackageCount = 1;
 
@@ -174,6 +173,7 @@ public class SQLitePrepopulate {
 
     private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         SyncService syncService = new SyncService();
+        CachedRowSet tablesData = null;
 
         PrepopulateFilter filter = buildPrepopulateFilter(
                 tableSchema,
@@ -215,54 +215,12 @@ public class SQLitePrepopulate {
                         tablesData.populate(rs);
                         tablesData.beforeFirst();
                         while (tablesData.next()) {
-                            Integer MergeContent_Action = tablesData.getInt("mergecontent_action");
-                            if (MergeContent_Action != 3) {
-                                Date d = tablesData.getDate("mergecontent_changedate");
-                                if (MergeContent_Action == -1 && tablesData.wasNull())
-                                    MergeContent_Action = 1;
-                                else
-                                    MergeContent_Action = 2;
-                            }
+                            int mergeContentAction = choosePrepopulateAction(tablesData);
 
-                            switch (MergeContent_Action) {
+                            switch (mergeContentAction) {
                                 case 1://insert
-                                    Integer param = 1;
-                                    for (DatabaseTableColumn column : table.Columns) {
-                                        String columnName = column.Name;
-                                        String value = tablesData.getString(columnName);
-
-                                        if (!columnName.equalsIgnoreCase("mergeinsertsource") && !columnName.toLowerCase().contains("mergecontent_".toLowerCase())) {
-                                            switch (column.DataTypeName)
-                                            {
-                                                case "timestamp":
-                                                case "datetime2":
-                                                case "datetime":
-                                                case "date":
-                                                    if(value != null && value.length() > 10) {
-                                                        SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
-                                                        parser.setTimeZone(TimeZone.getTimeZone("UTC"));
-                                                        Date parsed = parser.parse(value);
-                                                        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                                                        value = formatter.format(parsed);
-                                                    }
-                                                    break;
-                                                case "boolean":
-                                                    if(tablesData.getBoolean(columnName))
-                                                        value = "1";
-                                                    else
-                                                        value = "0";
-                                                    break;
-                                            }
-                                            insert.setString(param, value);
-                                            param++;
-                                        }
-                                    }
-                                    insert.addBatch();
-                                    batchCount++;
-                                    if(batchCount == 100){
-                                        batchCount = 0;
-                                        insert.executeBatch();
-                                    }
+                                    bindPrepopulateInsertRow(tablesData, table, insert);
+                                    batchCount = addInsertToBatch(insert, batchCount);
                                     break;
                             }
                         }
@@ -301,6 +259,72 @@ public class SQLitePrepopulate {
                 EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
+    }
+
+    private int addInsertToBatch(PreparedStatement insert, int batchCount) throws SQLException {
+        insert.addBatch();
+        batchCount++;
+
+        if(batchCount == 100){
+            batchCount = 0;
+            insert.executeBatch();
+        }
+
+        return batchCount;
+    }
+
+    private void bindPrepopulateInsertRow(
+            CachedRowSet tablesData,
+            DatabaseTable table,
+            PreparedStatement insert
+    ) throws Exception {
+        Integer param = 1;
+
+        for (DatabaseTableColumn column : table.Columns) {
+            String columnName = column.Name;
+            String value = tablesData.getString(columnName);
+
+            if (!columnName.equalsIgnoreCase("mergeinsertsource") && !columnName.toLowerCase().contains("mergecontent_".toLowerCase())) {
+                switch (column.DataTypeName)
+                {
+                    case "timestamp":
+                    case "datetime2":
+                    case "datetime":
+                    case "date":
+                        if(value != null && value.length() > 10) {
+                            SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
+                            parser.setTimeZone(TimeZone.getTimeZone("UTC"));
+                            Date parsed = parser.parse(value);
+                            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            value = formatter.format(parsed);
+                        }
+                        break;
+                    case "boolean":
+                        if(tablesData.getBoolean(columnName))
+                            value = "1";
+                        else
+                            value = "0";
+                        break;
+                }
+                insert.setString(param, value);
+                param++;
+            }
+        }
+    }
+
+
+    private int choosePrepopulateAction(CachedRowSet tablesData) throws SQLException {
+        int mergeContentAction = tablesData.getInt("mergecontent_action");
+
+        if (mergeContentAction != 3) {
+            tablesData.getDate("mergecontent_changedate");
+            if (mergeContentAction == -1 && tablesData.wasNull())
+                mergeContentAction = 1;
+            else
+                mergeContentAction = 2;
+        }
+
+        return mergeContentAction;
     }
 
     private void dropPrepopulateTriggers(String tableName) throws SQLException {
