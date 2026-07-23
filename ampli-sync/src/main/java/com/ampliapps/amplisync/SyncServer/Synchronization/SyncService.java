@@ -657,7 +657,7 @@ public class SyncService {
                 case "variant":
                 case "xml":
                 case "tinytext":
-                    if (columnValue == null || columnValue.isEmpty() || columnValue.trim() == "") {
+                    if (isEmptyStatementValue(columnValue) || columnValue.trim() == "") {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.OTHER);
                         else
@@ -666,7 +666,7 @@ public class SyncService {
                         statement.setString(parameterIndex, columnValue);
                     break;
                 case "boolean":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.BOOLEAN);
                         else
@@ -677,7 +677,7 @@ public class SyncService {
                     break;
                 case "byte":
                 case "tinyint":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.TINYINT);
                         else
@@ -689,7 +689,7 @@ public class SyncService {
                 case "smallint":
                 case "bit":
                 case "year":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.SMALLINT);
                         else
@@ -701,7 +701,7 @@ public class SyncService {
                 case "long":
                 case "int64":
                 case "serial":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.BIGINT);
                         else
@@ -714,7 +714,7 @@ public class SyncService {
                 case "int16":
                 case "int32":
                 case "smalldatetime":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.INTEGER);
                         else
@@ -728,7 +728,7 @@ public class SyncService {
                 case "decimal":
                 case "smallmoney":
                 case "money":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.DOUBLE);
                         else
@@ -738,7 +738,7 @@ public class SyncService {
                     break;
                 case "float":
                 case "real":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.REAL);
                         else
@@ -747,7 +747,7 @@ public class SyncService {
                         statement.setFloat(parameterIndex, Float.parseFloat(columnValue));
                     break;
                 case "time":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.TIME);
                         else
@@ -758,7 +758,7 @@ public class SyncService {
 
                 case "datetimeoffset":
                     Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.TIMESTAMP);
                         else
@@ -782,7 +782,7 @@ public class SyncService {
                     if (columnValue != null && !columnValue.isEmpty())
                         timestamp = new Timestamp(formatTimestamp.parse(columnValue).getTime());
 
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.DATE);
                         else
@@ -796,7 +796,7 @@ public class SyncService {
                     if (columnValue != null && !columnValue.isEmpty())
                         date = format.parse(columnValue);
 
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.DATE);
                         else
@@ -806,7 +806,7 @@ public class SyncService {
                     }
                     break;
                 case "uuid":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.OTHER);
                         else
@@ -815,7 +815,7 @@ public class SyncService {
                         statement.setObject(parameterIndex, columnValue, Types.OTHER);
                     break;
                 case "uniqueidentifier":
-                    if (columnValue == null || columnValue.isEmpty()) {
+                    if (isEmptyStatementValue(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.OTHER);
                         else
@@ -824,7 +824,7 @@ public class SyncService {
                         statement.setString(parameterIndex, columnValue);
                     break;
                 case "jsonb":
-                    if (columnValue == null || columnValue.isEmpty() || !Helpers.isJSONValid(columnValue)) {
+                    if (isEmptyStatementValue(columnValue) || !Helpers.isJSONValid(columnValue)) {
                         if (parameter.IsNullable)
                             statement.setNull(parameterIndex, Types.OTHER);
                         else
@@ -844,6 +844,10 @@ public class SyncService {
             String receivedDataStatementDesc = statement.toString();
             Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
         }
+    }
+
+    private boolean isEmptyStatementValue(String value) {
+        return value == null || value.isEmpty();
     }
 
     private void setDefaultsForParams(PreparedStatement insertStatement, String currentTable, List<DatabaseTableParameter> paramList) {
