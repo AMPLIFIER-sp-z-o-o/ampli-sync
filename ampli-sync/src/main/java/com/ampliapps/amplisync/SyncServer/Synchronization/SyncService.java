@@ -418,9 +418,13 @@ public class SyncService {
                 for (String tableName : orderedTableList)
                     commitTableChanges(changes, tableName, schema, subscriberId);
             }
+        } catch (InvalidReceivePayloadException e) {
+            Logs.write(Logs.Level.ERROR, "CommitChangesToDb() " + e.getMessage());
+            throw e;
         } catch (Exception e) {
             Logs.write(Logs.Level.ERROR, "CommitChangesToDb() " + e.getMessage());
-        } finally {
+        }
+        finally {
             JDBCCloser.close(cn);
         }
     }
@@ -568,7 +572,7 @@ public class SyncService {
         }
     }
 
-    private void pushDeletedRecords(JsonNode deletes, String schema) {
+    private void pushDeletedRecords(JsonNode deletes, String schema) throws SQLException {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             if (deletes.isArray()) {
@@ -576,8 +580,6 @@ public class SyncService {
                     pushDeletedRecord(cn, node, schema);
                 }
             }
-        } catch (Exception e) {
-            Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
         } finally {
             JDBCCloser.close(cn);
         }
@@ -589,13 +591,9 @@ public class SyncService {
 
         String deleteQuery = "delete from " + schema + "." + tableName + " where rowid = ?";
 
-        try {
-            PreparedStatement deleteStatement = cn.prepareStatement(deleteQuery);
-            deleteStatement.setString(1, rowId);
-            deleteStatement.executeUpdate();
-        } catch (SQLException e) {
-            Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
-        }
+        PreparedStatement deleteStatement = cn.prepareStatement(deleteQuery);
+        deleteStatement.setString(1, rowId);
+        deleteStatement.executeUpdate();
     }
 
     private String requireSyncedTable(Connection cn, String schema, String
@@ -610,8 +608,9 @@ public class SyncService {
             return resultSet.getString("tablename");
         }
 
-        throw new SQLException("Table is not configured for sync: " + schema + "."
-                + tableName);
+        throw new InvalidReceivePayloadException(
+                "Table is not configured for sync: " + schema + "." + tableName
+        );
     }
 
 

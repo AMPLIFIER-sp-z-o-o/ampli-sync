@@ -87,8 +87,20 @@ public class SyncAPI3 {
             @HeaderParam("Dev-User-Id") String devUserId) {
         String subscriberUUID = getSubscriberUUID(token, devUserId);
         SyncService sync = new SyncService();
-        sync.ReceiveData(receivedData, UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID), subscriberUUID, deviceUniqueId);
-        return Response.ok().build();
+
+        try {
+            sync.ReceiveData(
+                    receivedData,
+                    UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID),
+                    subscriberUUID,
+                    deviceUniqueId
+            );
+            return Response.ok().build();
+        } catch (InvalidReceivePayloadException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(e.getMessage())
+                    .build();
+        }
     }
 
     @GET
