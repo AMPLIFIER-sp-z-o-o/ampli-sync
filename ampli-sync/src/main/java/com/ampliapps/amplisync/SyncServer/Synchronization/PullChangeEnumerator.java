@@ -15,10 +15,10 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public class PullChangeEnumerator {
+final class PullChangeEnumerator {
     private final SyncRecordMapper recordMapper = new SyncRecordMapper();
 
-    public PullChangeSet enumerate(StringBuilder queryInserts, StringBuilder queryUpdates, StringBuilder queryDeletes) {
+    PullChangeSet enumerate(StringBuilder queryInserts, StringBuilder queryUpdates, StringBuilder queryDeletes) {
         PullChangeSet changeSet = new PullChangeSet();
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode root = mapper.createObjectNode();

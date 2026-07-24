@@ -4,24 +4,24 @@ import com.ampliapps.amplisync.SQLiteSyncConfig;
 
 import javax.sql.rowset.CachedRowSet;
 
-public class SyncSessionStore {
+final class SyncSessionStore {
 
-    public void writeSyncData(String syncId, CachedRowSet inserts, CachedRowSet updates, CachedRowSet deletes) {
+    void writeSyncData(String syncId, CachedRowSet inserts, CachedRowSet updates, CachedRowSet deletes) {
         BinaryWriter binaryWriter = binaryWriter();
         binaryWriter.writeToBinary(syncDataFile(syncId), inserts);
         binaryWriter.writeToBinary(syncDataUpdatesFile(syncId), updates);
         binaryWriter.writeToBinary(syncDataDeletesFile(syncId), deletes);
     }
 
-    public CachedRowSet readInserts(String syncId) {
+    CachedRowSet readInserts(String syncId) {
         return (CachedRowSet) binaryWriter().readFromBinaryFile(syncDataFile(syncId));
     }
 
-    public CachedRowSet readUpdates(String syncId) {
+    CachedRowSet readUpdates(String syncId) {
         return (CachedRowSet) binaryWriter().readFromBinaryFile(syncDataUpdatesFile(syncId));
     }
 
-    public CachedRowSet readDeletes(String syncId) {
+    CachedRowSet readDeletes(String syncId) {
         return (CachedRowSet) binaryWriter().readFromBinaryFile(syncDataDeletesFile(syncId));
     }
 

@@ -11,9 +11,9 @@ import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Date;
 
-public class SyncRecordMapper {
+final class SyncRecordMapper {
 
-    public void writeColumn(ObjectNode record, String columnName, String colDataType, String colValue, Boolean wasNull) {
+    void writeColumn(ObjectNode record, String columnName, String colDataType, String colValue, Boolean wasNull) {
         record.put(columnName, 1);
         if (colDataType.equalsIgnoreCase("Boolean") || colDataType.equalsIgnoreCase("bool") || colDataType.equalsIgnoreCase("bit")) {
             if (colValue == null || colValue.isEmpty() || colValue.equalsIgnoreCase("False"))
@@ -29,7 +29,7 @@ public class SyncRecordMapper {
             DateFormat format = new SimpleDateFormat(SQLiteSyncConfig.DATE_FORMAT);
             if (colValue != null && !colValue.isEmpty()) {
                 try {
-                    if(colValue.trim().length() == 10)
+                    if (colValue.trim().length() == 10)
                         colValue += " 00:00:00";
                     Date date = format.parse(colValue);
                     record.put(columnName, format.format(date));

@@ -1,13 +1,13 @@
 package com.ampliapps.amplisync.SyncServer.Synchronization;
 
-public class SQLiteClientQueryBuilder {
-    public void buildQueries(DataObject tableSync, String tableSchema) {
+final class SQLiteClientQueryBuilder {
+    void buildQueries(DataObject tableSync, String tableSchema) {
         String tableNameClear = tableSync.TableName;
 
         DatabaseTable table = DatabaseTableGuavaCacheUtil.getTableUsingGuava(tableNameClear, tableSchema);
 
         StringBuilder insertStatement = new StringBuilder();
-        StringBuilder updateStatment = new StringBuilder();
+        StringBuilder updateStatement = new StringBuilder();
 
         insertStatement.append("insert or replace into " + tableNameClear + " (");
         for (DatabaseTableColumn col : table.Columns)
@@ -25,29 +25,29 @@ public class SQLiteClientQueryBuilder {
             }
         tableSync.QueryInsert += insertStatement.substring(0, insertStatement.toString().length() - 1) + ");";
 
-        updateStatment.append("update " + tableNameClear + " set ");
+        updateStatement.append("update " + tableNameClear + " set ");
         for (DatabaseTableColumn col : table.Columns)
             if (!col.Name.equalsIgnoreCase("mergeinsertsource")) {
                 if (!col.IsInPrimaryKey) {
-                    updateStatment.append("[" + col.Name + "]");
-                    updateStatment.append("=?,");
+                    updateStatement.append("[" + col.Name + "]");
+                    updateStatement.append("=?,");
                 }
             }
 
-        updateStatment = new StringBuilder(updateStatment.substring(0, updateStatment.toString().length() - 1));
+        updateStatement = new StringBuilder(updateStatement.substring(0, updateStatement.toString().length() - 1));
 
-        updateStatment.append(" where ");
+        updateStatement.append(" where ");
 
         if (table.PrimaryKeyColumns.size() > 0) {
             for (String pk : table.PrimaryKeyColumns) {
-                updateStatment.append(pk);
-                updateStatment.append("=? and ");
+                updateStatement.append(pk);
+                updateStatement.append("=? and ");
             }
 
-            tableSync.QueryUpdate = updateStatment.substring(0, updateStatment.toString().length() - 5) + ";";
+            tableSync.QueryUpdate = updateStatement.substring(0, updateStatement.toString().length() - 5) + ";";
         } else {
-            updateStatment.append(SQLQueries.GET_ROWID_COLUMN_NAME() + "=?");
-            tableSync.QueryUpdate = updateStatment + ";";
+            updateStatement.append(SQLQueries.GET_ROWID_COLUMN_NAME() + "=?");
+            tableSync.QueryUpdate = updateStatement + ";";
         }
 
         tableSync.QueryDelete = "delete from " + tableNameClear + " where " + SQLQueries.GET_ROWID_COLUMN_NAME() + "=";
