@@ -583,9 +583,10 @@ public class SyncService {
         }
     }
 
-    private void pushDeletedRecord(Connection cn, JsonNode node, String schema) {
+    private void pushDeletedRecord(Connection cn, JsonNode node, String schema) throws SQLException {
         String rowId = node.path("rowid").asText();
-        String tableName = node.path("table").asText();
+        String tableName = requireSyncedTable(cn, schema, node.path("table").asText());
+
         String deleteQuery = "delete from " + schema + "." + tableName + " where rowid = ?";
 
         try {
@@ -596,6 +597,23 @@ public class SyncService {
             Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
         }
     }
+
+    private String requireSyncedTable(Connection cn, String schema, String
+            tableName) throws SQLException {
+        PreparedStatement statement =
+                cn.prepareStatement(QUERIES.DO_SYNC_GET_TABLE(schema));
+        statement.setString(1, tableName);
+        statement.setString(2, schema);
+
+        ResultSet resultSet = statement.executeQuery();
+        if (resultSet.next()) {
+            return resultSet.getString("tablename");
+        }
+
+        throw new SQLException("Table is not configured for sync: " + schema + "."
+                + tableName);
+    }
+
 
     private void parseStatementParameter(
             PreparedStatement statement,
