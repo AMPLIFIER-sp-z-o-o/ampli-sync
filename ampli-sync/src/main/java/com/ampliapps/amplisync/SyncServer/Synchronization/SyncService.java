@@ -584,13 +584,14 @@ public class SyncService {
     }
 
     private void pushDeletedRecord(Connection cn, JsonNode node, String schema) {
-        String rowid = node.path("rowid").asText();
-        String tableId = node.path("table").asText();
-        String deleteQuery = "delete from " + schema + "." + tableId + " where rowid='" + rowid + "'";
+        String rowId = node.path("rowid").asText();
+        String tableName = node.path("table").asText();
+        String deleteQuery = "delete from " + schema + "." + tableName + " where rowid = ?";
 
         try {
-            Statement deleteStatement = cn.createStatement();
-            deleteStatement.executeUpdate(deleteQuery);
+            PreparedStatement deleteStatement = cn.prepareStatement(deleteQuery);
+            deleteStatement.setString(1, rowId);
+            deleteStatement.executeUpdate();
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "PushDeletedRecords() " + e.getMessage());
         }
