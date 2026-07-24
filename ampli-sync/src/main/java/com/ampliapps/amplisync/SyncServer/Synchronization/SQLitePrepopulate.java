@@ -19,12 +19,12 @@ import javax.sql.rowset.CachedRowSet;
 
 public class SQLitePrepopulate {
 
-    private SQLQueries QUERIES = new SQLQueries();
-    String dbTempFolderName = UUID.randomUUID().toString();
-    Connection connSqliteLocal = null;
+    private final SQLQueries QUERIES = new SQLQueries();
+    private final String dbTempFolderName = UUID.randomUUID().toString();
+    private Connection connSqliteLocal = null;
     private Integer tablePackageCount = 1;
 
-    private Connection SQLiteConnection(String deviceUUID) {
+    private Connection sQLiteConnection(String deviceUUID) {
 
         Connection conn = null;
         try {
@@ -43,26 +43,8 @@ public class SQLitePrepopulate {
         Logs.write(Logs.Level.INFO, "PrepopulateDatabase subscriberUUID " + subscriberUUID + ", deviceUUID " + deviceUUID);
         String path = SQLiteSyncConfig.WORKING_DIR + "sqlite-databases";
         String userSchema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
-        CommonTools.DeleteFoldersOlderThanNdays(SQLiteSyncConfig.HISTORY_DAYS, path);
-        File theDir = new File(path);
-        if (!theDir.exists()) {
-            try{
-                theDir.mkdir();
-            }
-            catch(SecurityException se){
-                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating folder sqlite-databases " + se.getMessage());
-            }
-        }
 
-        File theTempDir = new File(SQLiteSyncConfig.WORKING_DIR + "sqlite-databases/" + dbTempFolderName);
-        if (!theTempDir.exists()) {
-            try{
-                theTempDir.mkdir();
-            }
-            catch(SecurityException se){
-                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating temp in folder sqlite-databases " + se.getMessage());
-            }
-        }
+        preparePrepopulateDirectories(path);
 
         CommonTools commonTools = new CommonTools();
         if (commonTools.GetSynchronizedTablesCount(userSchema) == 0) {
@@ -71,31 +53,66 @@ public class SQLitePrepopulate {
         commonTools.InitSync(userSchema);
         SchemaGenerator schemaGenerator = new SchemaGenerator();
         String dbSchema = schemaGenerator.GetFullSchematScript(subscriberUUID, deviceUUID);
-        CreateEmptyDatabase(deviceUUID, dbSchema);
+        createEmptyDatabase(deviceUUID, dbSchema);
         Map<Integer, String> tablesList = commonTools.GetSynchronizedTables(userSchema);
         for(Map.Entry<Integer, String> entry : tablesList.entrySet())
-            PopulateTable(subscriberUUID, entry.getValue(), deviceUUID);
+            populateTable(subscriberUUID, entry.getValue(), deviceUUID);
 
-        Statement stmt = null;
-        String dbFilePath = String.format("%1$ssqlite-databases/%2$s/amperflow.db", SQLiteSyncConfig.WORKING_DIR, dbTempFolderName);
-        try {
-            stmt = connSqliteLocal.createStatement();
-            stmt.executeUpdate("backup to " + dbFilePath);
-            stmt.close();
-        } catch (Exception e) {
-            Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->backup to " + e.getMessage());
-        }
+        String dbFilePath = backupPrepopulateDatabase();
 
         if(connSqliteLocal != null)
             JDBCCloser.close(connSqliteLocal);
 
+        return zipPrepopulateDatabase(dbFilePath, commonTools);
+
+    }
+
+    private void preparePrepopulateDirectories(String path) {
+        CommonTools.DeleteFoldersOlderThanNdays(SQLiteSyncConfig.HISTORY_DAYS, path);
+
+        File theDir = new File(path);
+        if (!theDir.exists()) {
+            try {
+                theDir.mkdir();
+            } catch (SecurityException se) {
+                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating folder sqlite-databases " + se.getMessage());
+            }
+        }
+
+        File theTempDir = new File(SQLiteSyncConfig.WORKING_DIR + "sqlite-databases/" + dbTempFolderName);
+        if (!theTempDir.exists()) {
+            try {
+                theTempDir.mkdir();
+            } catch (SecurityException se) {
+                Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->Creating temp in folder sqlite-databases " + se.getMessage());
+            }
+        }
+    }
+
+    private String backupPrepopulateDatabase() {
+        String dbFilePath = String.format(
+                "%1$ssqlite-databases/%2$s/amperflow.db",
+                SQLiteSyncConfig.WORKING_DIR,
+                dbTempFolderName
+        );
+
+        try (Statement stmt = connSqliteLocal.createStatement()) {
+            stmt.executeUpdate("backup to " + dbFilePath);
+        } catch (Exception e) {
+            Logs.write(Logs.Level.ERROR, "PrepopulateDatabase()->backup to " + e.getMessage());
+        }
+
+        return dbFilePath;
+    }
+
+    private String zipPrepopulateDatabase(String dbFilePath, CommonTools commonTools) {
         File sqliteDb = new File(dbFilePath);
         commonTools.AddFileToZip(new File(dbFilePath + ".zip"), sqliteDb);
         sqliteDb.delete();
         return dbFilePath + ".zip";
     }
 
-    private void CreateEmptyDatabase(String deviceUUID, String json) {
+    private void createEmptyDatabase(String deviceUUID, String json) {
         Map<String, String> schema = new HashMap<>();
         ObjectMapper mapper = new ObjectMapper();
         try {
@@ -107,7 +124,7 @@ public class SQLitePrepopulate {
             mapper = null;
         }
 
-        connSqliteLocal = SQLiteConnection(deviceUUID);
+        connSqliteLocal = sQLiteConnection(deviceUUID);
         try
         {
             Statement statement = connSqliteLocal.createStatement();
@@ -126,37 +143,34 @@ public class SQLitePrepopulate {
         }
     }
 
-    public void PopulateTable(String subscriberUUID, String table, String deviceUUID) {
+    private void populateTable(String subscriberUUID, String table, String deviceUUID) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             CommonTools common = new CommonTools();
             String subscriberId = common.CheckIfSubscriberExists(subscriberUUID, deviceUUID).toString();
             String userSchema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
 
-            if(subscriberId.equalsIgnoreCase("-1")){
+            if (subscriberId.equalsIgnoreCase("-1")){
                 Logs.write(Logs.Level.ERROR, "Error creating new subscriber for UUID " + subscriberUUID);
             }
 
             String tableSchema = "";
+            String name = resolvePrepopulateTableName(table);
+            PrepopulateTableDefinition tableDefinition = findPrepopulateTable(cn, name, userSchema);
 
-            String[] tmp = table.split(Pattern.quote("."));
-            String name = table;
-            if (tmp.length > 1) {
-                name = tmp[tmp.length - 1];
-            }
-            String query = QUERIES.DO_SYNC_GET_TABLE(userSchema);
-            PreparedStatement tableToPublish = cn.prepareStatement(query);
-            tableToPublish.setString(1, name);
-            tableToPublish.setString(2, userSchema);
-
-            ResultSet reader = tableToPublish.executeQuery();
-            if (reader.next()) {
-                tableSchema = reader.getString("TableSchema");
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + reader.getString("TableName"));
+            if (tableDefinition != null) {
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table "+ subscriberUUID +"/" + tableDefinition.tableName());
                 tablePackageCount = 1;
-                String tableFilter = reader.getString("TableFilter");
-                EnumerateChanges(reader.getString("TableId"), subscriberId, reader.getString("TableName"), tableSchema, tableFilter, subscriberUUID);
-                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + reader.getString("TableName") + " done");
+                enumerateChanges(
+                        tableDefinition.tableId(),
+                        subscriberId,
+                        tableDefinition.tableName(),
+                        tableDefinition.tableSchema(),
+                        tableDefinition.tableFilter(),
+                        subscriberUUID
+                );
+
+                Logs.write(Logs.Level.INFO, "PrepopulateDatabase->table " + subscriberUUID + "/" + tableDefinition.tableName() + " done");
             } else
                 Logs.write(Logs.Level.TRACE, "DoSync(). Table " + userSchema + "." + table + " was not found in MergeTablesToSync.");
 
@@ -168,10 +182,50 @@ public class SQLitePrepopulate {
         }
     }
 
+    private String resolvePrepopulateTableName(String table) {
+        String[] tmp = table.split(Pattern.quote("."));
+        if (tmp.length > 1) {
+            return tmp[tmp.length - 1];
+        }
+
+        return table;
+    }
+
+    private record PrepopulateTableDefinition(
+            String tableId,
+            String tableName,
+            String tableSchema,
+            String tableFilter
+    ) {
+    }
+
+    private PrepopulateTableDefinition findPrepopulateTable(
+            Connection cn,
+            String tableName,
+            String userSchema
+    ) throws SQLException {
+        PreparedStatement tableToPublish = cn.prepareStatement(QUERIES.DO_SYNC_GET_TABLE(userSchema));
+        tableToPublish.setString(1, tableName);
+        tableToPublish.setString(2, userSchema);
+
+        try (ResultSet reader = tableToPublish.executeQuery()) {
+            if (!reader.next()) {
+                return null;
+            }
+
+            return new PrepopulateTableDefinition(
+                    reader.getString("TableId"),
+                    reader.getString("TableName"),
+                    reader.getString("TableSchema"),
+                    reader.getString("TableFilter")
+            );
+        }
+    }
+
     private record PrepopulateFilter(String view, String changeDetectionCondition) {
     }
 
-    private void EnumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
+    private void enumerateChanges(String tableId, String subscriberId, String tableName, String tableSchema, String tableFilter, String subscriberUUID) {
         SyncService syncService = new SyncService();
         CachedRowSet tablesData = null;
 
@@ -183,7 +237,7 @@ public class SQLitePrepopulate {
                 subscriberId
         );
 
-        StringBuilder query = BuildMergeQuery(
+        StringBuilder query = buildMergeQuery(
                 tableId,
                 subscriberId,
                 tableName,
@@ -234,8 +288,7 @@ public class SQLitePrepopulate {
 
             } while (hasResults || cmd.getUpdateCount() != -1);
 
-
-            if(batchCount > 0 && batchCount < 100) {
+            if (batchCount > 0 && batchCount < 100) {
                 insert.executeBatch();
             }
 
@@ -255,8 +308,8 @@ public class SQLitePrepopulate {
         }
         finally {
             JDBCCloser.close(cn);
-            if(tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
-                EnumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
+            if (tablesData.size() > 0 && tablesData.size() == 5000 && tablePackageCount < 13) {
+                enumerateChanges(tableId, subscriberId, tableName, tableSchema, tableFilter, subscriberUUID);
             }
         }
     }
@@ -265,7 +318,7 @@ public class SQLitePrepopulate {
         insert.addBatch();
         batchCount++;
 
-        if(batchCount == 100){
+        if (batchCount == 100){
             batchCount = 0;
             insert.executeBatch();
         }
@@ -291,7 +344,7 @@ public class SQLitePrepopulate {
                     case "datetime2":
                     case "datetime":
                     case "date":
-                        if(value != null && value.length() > 10) {
+                        if (value != null && value.length() > 10) {
                             SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
                             parser.setTimeZone(TimeZone.getTimeZone("UTC"));
                             Date parsed = parser.parse(value);
@@ -300,7 +353,7 @@ public class SQLitePrepopulate {
                         }
                         break;
                     case "boolean":
-                        if(tablesData.getBoolean(columnName))
+                        if (tablesData.getBoolean(columnName))
                             value = "1";
                         else
                             value = "0";
@@ -340,11 +393,11 @@ public class SQLitePrepopulate {
         Statement trCreate = connSqliteLocal.createStatement();
         if (!tableName.equalsIgnoreCase("MergeIdentity")) {
             String q = schemaGenerator.CreateUpdateTrigger(table, schemaGenerator.GenerateUpdateableColumns(table.Columns));
-            if(q.trim().length() > 0)
+            if (q.trim().length() > 0)
                 trCreate.addBatch(q);
 
             q = schemaGenerator.CreateDeleteTrigger(table);
-            if(q.trim().length() > 0)
+            if (q.trim().length() > 0)
                 trCreate.addBatch(q);
 
             trCreate.executeBatch();
@@ -407,20 +460,20 @@ public class SQLitePrepopulate {
         return queryInsert;
     }
 
-    public StringBuilder BuildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
+    private StringBuilder buildMergeQuery(String tableId, String subscriberId, String tableName, String tableSchema, String filterVW, String filterVW_CD) {
         StringBuilder query = new StringBuilder();
         String topLimit = "LIMIT 5000";
 
         query.append("with inserts as ( ");
         query.append("select vw.rowid ");
-        if(filterVW_CD.trim().length() > 0 || filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
+        if (filterVW_CD.trim().length() > 0 || filterVW.startsWith("public.fn_") || filterVW.startsWith("fn_")) {
             query.append("from " + tableSchema + "." + filterVW + " vw ");
         } else {
             query.append("from " + tableSchema + "." + tableName + " vw ");
         }
         query.append("where ");
         query.append("not exists (select 1 from  " + tableSchema + ".mergecontent_" + tableName + " t where vw.rowid=t.rowid and t.subscriberId=" + subscriberId + ") ");
-        if(filterVW_CD.trim().length() > 0)
+        if (filterVW_CD.trim().length() > 0)
             query.append(" " + filterVW_CD);
         query.append(" " + topLimit + "");
         query.append(") ");
@@ -433,7 +486,7 @@ public class SQLitePrepopulate {
         query.append("null as MergeContent_SyncId   ");
         query.append("from " + tableSchema + "." + tableName + " tb ");
         query.append("join inserts on tb.rowid = inserts.rowid ");
-        if(tableName.equalsIgnoreCase("mergeidentity"))
+        if (tableName.equalsIgnoreCase("mergeidentity"))
             query.append("and tb.subscriberid =" + subscriberId);
 
         return query;
