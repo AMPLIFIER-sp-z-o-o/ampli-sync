@@ -449,6 +449,26 @@ class SyncDeviceRegressionTest {
         }
     }
 
+    @Test
+    void shouldRejectReceiveDeleteForTableOutsideSyncConfiguration() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        String testRunId = newId();
+        String deviceId = testRunId + "-device-a";
+
+        try (SyncDevice deviceA = createDevice(client, testRunId, "device-a")) {
+            deviceA.prepopulate();
+
+            PayloadBuilder.PushPayload payload = new PayloadBuilder.PushPayload(
+                    List.of(),
+                    List.of(new DeletedRecord("mergesubscribers", newId()))
+            );
+
+            int statusCode = client.sendChangesAndReturnStatus(deviceId, payload);
+
+            assertEquals(400, statusCode);
+        }
+    }
+
 
     private static Map<String, Object> customer(String id, String name, String email, String city) {
         return Map.of(
