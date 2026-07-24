@@ -97,7 +97,7 @@ public class SyncAPI3 {
             );
             return Response.ok().build();
         } catch (InvalidReceivePayloadException e) {
-            return Response.status(Response.Status.BAD_REQUEST)
+            return Response.status(Response.Status.FORBIDDEN)
                     .entity(e.getMessage())
                     .build();
         }

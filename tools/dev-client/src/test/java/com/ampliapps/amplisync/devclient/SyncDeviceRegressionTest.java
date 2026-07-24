@@ -465,7 +465,7 @@ class SyncDeviceRegressionTest {
 
             int statusCode = client.sendChangesAndReturnStatus(deviceId, payload);
 
-            assertEquals(400, statusCode);
+            assertEquals(403, statusCode);
         }
     }
 
