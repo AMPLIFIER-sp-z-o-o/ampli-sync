@@ -596,18 +596,22 @@ public class SyncService {
         }
     }
 
-    private void parseStatementParameter(PreparedStatement insertStatement, Integer colNumber, String colName, String colValue, Object paramDef) {
+    private void parseStatementParameter(
+            PreparedStatement statement,
+            Integer parameterIndex,
+            String columnName,
+            String columnValue,
+            DatabaseTableParameter parameter
+    ) {
+        if (columnValue == null || columnValue.equalsIgnoreCase("null"))
+            columnValue = "";
 
-        if (colValue == null || colValue.equalsIgnoreCase("null"))
-            colValue = "";
-
-        DatabaseTableParameter colParamDef = ((DatabaseTableParameter) paramDef);
         DateFormat format = new SimpleDateFormat(SQLiteSyncConfig.DATE_FORMAT);
         DateFormat formatTimestamp = new SimpleDateFormat(SQLiteSyncConfig.TIMESTAMP_FORMAT);
-        String colDbType = colParamDef.DbType.toLowerCase();
+        String dbType = parameter.DbType.toLowerCase();
 
         try {
-            switch (colDbType) {
+            switch (dbType) {
                 case "blob":
                 case "longblob":
                 case "mediumblob":
@@ -617,19 +621,19 @@ public class SyncService {
                 case "image":
                 case "picture":
                 case "byte[]":
-                    byte[] byteData = colValue.getBytes(StandardCharsets.UTF_8);
+                    byte[] byteData = columnValue.getBytes(StandardCharsets.UTF_8);
                     Connection cn = Database.getInstance().GetDBConnection();
                     try {
                         Blob blobData = cn.createBlob();
                         blobData.setBytes(1, byteData);
-                        insertStatement.setBlob(colNumber, blobData);
+                        statement.setBlob(parameterIndex, blobData);
                     } finally {
                         JDBCCloser.close(cn);
                     }
                     break;
                 case "bytea":
-                    byte[] byteaData = colValue.getBytes(StandardCharsets.UTF_8);
-                    insertStatement.setBytes(colNumber, byteaData);
+                    byte[] byteaData = columnValue.getBytes(StandardCharsets.UTF_8);
+                    statement.setBytes(parameterIndex, byteaData);
                     break;
                 case "longtext":
                 case "varchar":
@@ -653,70 +657,70 @@ public class SyncService {
                 case "variant":
                 case "xml":
                 case "tinytext":
-                    if (colValue == null || colValue.isEmpty() || colValue.trim() == "") {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.OTHER);
+                    if (isEmptyStatementValue(columnValue) || columnValue.trim() == "") {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.OTHER);
                         else
-                            insertStatement.setString(colNumber, "");
+                            statement.setString(parameterIndex, "");
                     } else
-                        insertStatement.setString(colNumber, colValue);
+                        statement.setString(parameterIndex, columnValue);
                     break;
                 case "boolean":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.BOOLEAN);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.BOOLEAN);
                         else
-                            insertStatement.setBoolean(colNumber, false);
+                            statement.setBoolean(parameterIndex, false);
                     } else {
-                        insertStatement.setBoolean(colNumber, colValue.equalsIgnoreCase("1") || colValue.equalsIgnoreCase("true"));
+                        statement.setBoolean(parameterIndex, columnValue.equalsIgnoreCase("1") || columnValue.equalsIgnoreCase("true"));
                     }
                     break;
                 case "byte":
                 case "tinyint":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.TINYINT);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.TINYINT);
                         else
-                            insertStatement.setShort(colNumber, Short.parseShort("0"));
+                            statement.setShort(parameterIndex, Short.parseShort("0"));
                     } else
-                        insertStatement.setShort(colNumber, Short.parseShort(colValue));
+                        statement.setShort(parameterIndex, Short.parseShort(columnValue));
 
                     break;
                 case "smallint":
                 case "bit":
                 case "year":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.SMALLINT);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.SMALLINT);
                         else
-                            insertStatement.setInt(colNumber, Integer.parseInt("0"));
+                            statement.setInt(parameterIndex, Integer.parseInt("0"));
                     } else
-                        insertStatement.setInt(colNumber, Integer.parseInt(colValue));
+                        statement.setInt(parameterIndex, Integer.parseInt(columnValue));
                     break;
                 case "bigint":
                 case "long":
                 case "int64":
                 case "serial":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.BIGINT);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.BIGINT);
                         else
-                            insertStatement.setLong(colNumber, Long.parseLong("0"));
+                            statement.setLong(parameterIndex, Long.parseLong("0"));
                     } else
-                        insertStatement.setLong(colNumber, Long.parseLong(colValue));
+                        statement.setLong(parameterIndex, Long.parseLong(columnValue));
                     break;
                 case "mediumint":
                 case "int":
                 case "int16":
                 case "int32":
                 case "smalldatetime":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.INTEGER);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.INTEGER);
                         else
-                            insertStatement.setInt(colNumber, Integer.parseInt("0"));
+                            statement.setInt(parameterIndex, Integer.parseInt("0"));
                     } else
-                        insertStatement.setInt(colNumber, Integer.parseInt(colValue));
+                        statement.setInt(parameterIndex, Integer.parseInt(columnValue));
                     break;
                 case "double":
                 case "double precision":
@@ -724,44 +728,44 @@ public class SyncService {
                 case "decimal":
                 case "smallmoney":
                 case "money":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.DOUBLE);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.DOUBLE);
                         else
-                            insertStatement.setDouble(colNumber, Double.parseDouble("0"));
+                            statement.setDouble(parameterIndex, Double.parseDouble("0"));
                     } else
-                        insertStatement.setDouble(colNumber, Double.parseDouble(colValue));
+                        statement.setDouble(parameterIndex, Double.parseDouble(columnValue));
                     break;
                 case "float":
                 case "real":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.REAL);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.REAL);
                         else
-                            insertStatement.setFloat(colNumber, Float.parseFloat("0"));
+                            statement.setFloat(parameterIndex, Float.parseFloat("0"));
                     } else
-                        insertStatement.setFloat(colNumber, Float.parseFloat(colValue));
+                        statement.setFloat(parameterIndex, Float.parseFloat(columnValue));
                     break;
                 case "time":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.TIME);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.TIME);
                         else
-                            insertStatement.setTime(colNumber, Time.valueOf("00:00:00"));
+                            statement.setTime(parameterIndex, Time.valueOf("00:00:00"));
                     } else
-                        insertStatement.setTime(colNumber, Time.valueOf(colValue));
+                        statement.setTime(parameterIndex, Time.valueOf(columnValue));
                     break;
 
                 case "datetimeoffset":
                     Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.TIMESTAMP);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.TIMESTAMP);
                         else
-                            insertStatement.setTimestamp(colNumber, new Timestamp(System.currentTimeMillis()), cal);
+                            statement.setTimestamp(parameterIndex, new Timestamp(System.currentTimeMillis()), cal);
                     } else {
-                        OffsetDateTime offDt = OffsetDateTime.parse(colValue.split(Pattern.quote("+"))[0].trim().replace(" ", "T") + "+" + colValue.split(Pattern.quote("+"))[1], DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-                        insertStatement.setTimestamp(colNumber, Timestamp.valueOf(offDt.toLocalDateTime()));
+                        OffsetDateTime offDt = OffsetDateTime.parse(columnValue.split(Pattern.quote("+"))[0].trim().replace(" ", "T") + "+" + columnValue.split(Pattern.quote("+"))[1], DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                        statement.setTimestamp(parameterIndex, Timestamp.valueOf(offDt.toLocalDateTime()));
                     }
 
                     break;
@@ -770,76 +774,80 @@ public class SyncService {
                 case "timestamp without time zone":
                 case "timestamp with time zone":
 
-                    if (colValue.length() == 10)
-                        colValue = colValue + " 00:00:00";
+                    if (columnValue.length() == 10)
+                        columnValue = columnValue + " 00:00:00";
 
                     Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 
-                    if (colValue != null && !colValue.isEmpty())
-                        timestamp = new Timestamp(formatTimestamp.parse(colValue).getTime());
+                    if (columnValue != null && !columnValue.isEmpty())
+                        timestamp = new Timestamp(formatTimestamp.parse(columnValue).getTime());
 
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.DATE);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.DATE);
                         else
-                            insertStatement.setTimestamp(colNumber, new java.sql.Timestamp(timestamp.getTime()));
+                            statement.setTimestamp(parameterIndex, new java.sql.Timestamp(timestamp.getTime()));
                     } else {
-                        insertStatement.setTimestamp(colNumber, new java.sql.Timestamp(timestamp.getTime()));
+                        statement.setTimestamp(parameterIndex, new java.sql.Timestamp(timestamp.getTime()));
                     }
                     break;
                 case "date":
                     Date date = new Date();
-                    if (colValue != null && !colValue.isEmpty())
-                        date = format.parse(colValue);
+                    if (columnValue != null && !columnValue.isEmpty())
+                        date = format.parse(columnValue);
 
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.DATE);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.DATE);
                         else
-                            insertStatement.setDate(colNumber, new java.sql.Date(date.getTime()));
+                            statement.setDate(parameterIndex, new java.sql.Date(date.getTime()));
                     } else {
-                        insertStatement.setDate(colNumber, new java.sql.Date(date.getTime()));
+                        statement.setDate(parameterIndex, new java.sql.Date(date.getTime()));
                     }
                     break;
                 case "uuid":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.OTHER);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.OTHER);
                         else
-                            insertStatement.setObject(colNumber, UUID.randomUUID().toString(), Types.OTHER);
+                            statement.setObject(parameterIndex, UUID.randomUUID().toString(), Types.OTHER);
                     } else
-                        insertStatement.setObject(colNumber, colValue, Types.OTHER);
+                        statement.setObject(parameterIndex, columnValue, Types.OTHER);
                     break;
                 case "uniqueidentifier":
-                    if (colValue == null || colValue.isEmpty()) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.OTHER);
+                    if (isEmptyStatementValue(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.OTHER);
                         else
-                            insertStatement.setString(colNumber, UUID.randomUUID().toString());
+                            statement.setString(parameterIndex, UUID.randomUUID().toString());
                     } else
-                        insertStatement.setString(colNumber, colValue);
+                        statement.setString(parameterIndex, columnValue);
                     break;
                 case "jsonb":
-                    if (colValue == null || colValue.isEmpty() || !Helpers.isJSONValid(colValue)) {
-                        if (colParamDef.IsNullable)
-                            insertStatement.setNull(colNumber, Types.OTHER);
+                    if (isEmptyStatementValue(columnValue) || !Helpers.isJSONValid(columnValue)) {
+                        if (parameter.IsNullable)
+                            statement.setNull(parameterIndex, Types.OTHER);
                         else
-                            insertStatement.setObject(colNumber, null);
+                            statement.setObject(parameterIndex, null);
                     } else {
                         PGobject jsonObject = new PGobject();
                         jsonObject.setType("jsonb");
-                        jsonObject.setValue(colValue);
-                        insertStatement.setObject(colNumber, jsonObject);
+                        jsonObject.setValue(columnValue);
+                        statement.setObject(parameterIndex, jsonObject);
                     }
                     break;
                 default:
-                    insertStatement.setString(colNumber, colValue);
+                    statement.setString(parameterIndex, columnValue);
                     break;
             }
         } catch (SQLException | ParseException e) {
-            String receivedDataStatementDesc = insertStatement.toString();
-            Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + colName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
+            String receivedDataStatementDesc = statement.toString();
+            Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
         }
+    }
+
+    private boolean isEmptyStatementValue(String value) {
+        return value == null || value.isEmpty();
     }
 
     private void setDefaultsForParams(PreparedStatement insertStatement, String currentTable, List<DatabaseTableParameter> paramList) {
