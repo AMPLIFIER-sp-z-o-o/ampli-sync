@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.nio.file.Path;
 import java.io.File;
 import java.util.Map;
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
@@ -389,8 +390,84 @@ class SyncDeviceRegressionTest {
         }
     }
 
+    @Test
+    void shouldNotTreatReceiveDeleteRowIdAsSql() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        String testRunId = newId();
 
+        try (SyncDevice deviceA = createDevice(client, testRunId, "device-a");
+             SyncDevice deviceB = createDevice(client, testRunId, "device-b"))
+        {
+            deviceA.prepopulate();
+            deviceB.prepopulate();
 
+            String customerId = newId();
+            Map<String, Object> customer = customer(
+                    customerId,
+                    "SQL Injection Customer",
+                    "sql-injection@example.com",
+                    "Warsaw"
+            );
+
+            deviceA.insertRow(DemoCustomersFixture.TABLE, customer);
+            deviceA.push();
+            deviceA.pullTable(DemoCustomersFixture.TABLE);
+            deviceB.pullTable(DemoCustomersFixture.TABLE);
+
+            String rowId = deviceA.findFirstValue(
+                    DemoCustomersFixture.TABLE,
+                    "rowid",
+                    "id",
+                    customerId
+            );
+
+            PayloadBuilder.PushPayload maliciousPayload = new
+                    PayloadBuilder.PushPayload(
+                    List.of(),
+                    List.of(new DeletedRecord(
+                            DemoCustomersFixture.TABLE,
+                            rowId + "' OR true --"
+                    ))
+            );
+
+            int statusCode = client.sendChangesAndReturnStatus(
+                    testRunId + "-device-a",
+                    maliciousPayload
+            );
+
+            assertEquals(200, statusCode);
+
+            deviceB.pullTable(DemoCustomersFixture.TABLE);
+
+            SyncDeviceAssertions.assertRowValues(
+                    deviceB,
+                    DemoCustomersFixture.TABLE,
+                    "id",
+                    customerId,
+                    customer
+            );
+        }
+    }
+
+    @Test
+    void shouldRejectReceiveDeleteForTableOutsideSyncConfiguration() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        String testRunId = newId();
+        String deviceId = testRunId + "-device-a";
+
+        try (SyncDevice deviceA = createDevice(client, testRunId, "device-a")) {
+            deviceA.prepopulate();
+
+            PayloadBuilder.PushPayload payload = new PayloadBuilder.PushPayload(
+                    List.of(),
+                    List.of(new DeletedRecord("mergesubscribers", newId()))
+            );
+
+            int statusCode = client.sendChangesAndReturnStatus(deviceId, payload);
+
+            assertEquals(403, statusCode);
+        }
+    }
 
 
     private static Map<String, Object> customer(String id, String name, String email, String city) {

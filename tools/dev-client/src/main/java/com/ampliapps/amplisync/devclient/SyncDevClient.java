@@ -106,6 +106,15 @@ public class SyncDevClient {
     }
 
     public void sendChanges(String deviceId, PushPayload payload) {
+        int statusCode = sendChangesAndReturnStatus(deviceId, payload);
+
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new IllegalStateException("Send changes failed with status: " +
+                    statusCode);
+        }
+    }
+
+    public int sendChangesAndReturnStatus(String deviceId, PushPayload payload) {
         if (deviceId == null || deviceId.isBlank()) {
             throw new IllegalArgumentException("deviceId can't be empty");
         }
@@ -114,20 +123,20 @@ public class SyncDevClient {
         try {
             json = objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize push payload", e);
+            throw new IllegalStateException("Failed to serialize push payload",
+                    e);
         }
 
-        HttpRequest request = requestBuilder(syncBaseUrl + "receive-changes/" + deviceId)
+        HttpRequest request = requestBuilder(syncBaseUrl + "receive-changes/" +
+                deviceId)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Send changes failed with status: " + response.statusCode());
-            }
+            HttpResponse<String> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofString());
+            return response.statusCode();
         } catch (IOException e) {
             throw new IllegalStateException("Send changes request failed", e);
         } catch (InterruptedException e) {
