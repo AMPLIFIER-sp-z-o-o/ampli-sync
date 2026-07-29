@@ -156,7 +156,7 @@ public class SyncService {
 
         Integer syncId = syncSessionRepository.startSync(subscriberId, tableId, schema);
 
-        syncSessionStore.writeSyncData(syncId.toString(), inserts, updates, deletes);
+        syncSessionStore.writeSyncData(schema, syncId.toString(), inserts, updates, deletes);
 
         return syncId;
     }
@@ -235,9 +235,9 @@ public class SyncService {
     }
 
     public void CommitSync(String syncId, String schema) {
-        CachedRowSet cachedDataInserts = syncSessionStore.readInserts(syncId);
-        CachedRowSet cachedDataUpdates = syncSessionStore.readUpdates(syncId);
-        CachedRowSet cachedDataDeletes = syncSessionStore.readDeletes(syncId);
+        CachedRowSet cachedDataInserts = syncSessionStore.readInserts(schema, syncId);
+        CachedRowSet cachedDataUpdates = syncSessionStore.readUpdates(schema, syncId);
+        CachedRowSet cachedDataDeletes = syncSessionStore.readDeletes(schema, syncId);
 
         CommitSyncSession session = readCommitSyncSession(syncId, schema);
 
