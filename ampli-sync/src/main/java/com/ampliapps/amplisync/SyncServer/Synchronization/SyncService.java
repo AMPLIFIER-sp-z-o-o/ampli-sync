@@ -860,7 +860,11 @@ public class SyncService {
         } catch (SQLException | ParseException e) {
             String receivedDataStatementDesc = statement.toString();
             Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
+            throw new InvalidReceivePayloadException(
+                    "Invalid value for column " + columnName + ": " + e.getMessage()
+            );
         }
+
     }
 
     private boolean isEmptyStatementValue(String value) {
