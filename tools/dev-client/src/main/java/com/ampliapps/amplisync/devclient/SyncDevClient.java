@@ -182,16 +182,21 @@ public class SyncDevClient {
             return;
         }
 
+        int statusCode = commitSyncAndReturnStatus(syncId);
+
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new IllegalStateException("Commit sync failed with status: " + statusCode);
+        }
+    }
+
+    public int commitSyncAndReturnStatus(int syncId) {
         HttpRequest request = requestBuilder(syncBaseUrl + "commit-sync/" + syncId)
                 .GET()
                 .build();
 
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Commit sync failed with status: " + response.statusCode());
-            }
+            return response.statusCode();
         } catch (IOException e) {
             throw new IllegalStateException("Commit sync request failed", e);
         } catch (InterruptedException e) {

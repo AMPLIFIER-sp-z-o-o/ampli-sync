@@ -67,14 +67,23 @@ public class SyncAPI3 {
             @HeaderParam(HttpHeaders.AUTHORIZATION) String token,
             @HeaderParam("Dev-User-Id") String devUserId) {
 
-        Response response = Response.ok().build();
-        if(syncId.isEmpty() || syncId == null)
-            return response;
+        if (syncId == null || syncId.isEmpty())
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("Sync session id is required")
+                    .build();
+
         String subscriberUUID = getSubscriberUUID(token, devUserId);
         String schema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
         SyncService sync = new SyncService();
-        sync.CommitSync(syncId, schema);
-        return response;
+
+        try {
+            sync.CommitSync(syncId, schema);
+            return Response.ok().build();
+        } catch (InvalidCommitSyncSessionException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(e.getMessage())
+                    .build();
+        }
     }
 
     @POST

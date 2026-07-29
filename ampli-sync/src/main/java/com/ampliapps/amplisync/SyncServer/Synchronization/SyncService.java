@@ -250,18 +250,17 @@ public class SyncService {
     }
 
     private CommitSyncSession readCommitSyncSession(String syncId, String schema) {
-        String tableName = "";
-        int subscriberId = 0;
-
         Connection cn = Database.getInstance().GetDBConnection();
         try {
             PreparedStatement query = cn.prepareStatement(QUERIES.COMMIT_SYNC(schema));
             query.setInt(1, Integer.parseInt(syncId));
             ResultSet reader = query.executeQuery();
 
-            while (reader.next()) {
-                tableName = reader.getString("TableName");
-                subscriberId = reader.getInt("subscriberId");
+            if (reader.next()) {
+                return new CommitSyncSession(
+                        reader.getString("TableName"),
+                        reader.getInt("subscriberId")
+                );
             }
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "CommitSync() " + e.getMessage());
@@ -269,7 +268,7 @@ public class SyncService {
             JDBCCloser.close(cn);
         }
 
-        return new CommitSyncSession(tableName, subscriberId);
+        throw new InvalidCommitSyncSessionException("Sync session was not found: " + syncId);
     }
 
     private void updateSyncData(

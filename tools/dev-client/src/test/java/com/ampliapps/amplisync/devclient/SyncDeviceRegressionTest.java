@@ -469,6 +469,14 @@ class SyncDeviceRegressionTest {
         }
     }
 
+    @Test
+    void shouldReturnNotFoundForMissingCommitSyncSession() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+
+        int statusCode = client.commitSyncAndReturnStatus(Integer.MAX_VALUE);
+
+        assertEquals(404, statusCode);
+    }
 
     private static Map<String, Object> customer(String id, String name, String email, String city) {
         return Map.of(
