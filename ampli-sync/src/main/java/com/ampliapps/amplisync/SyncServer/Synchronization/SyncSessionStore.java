@@ -19,15 +19,15 @@ final class SyncSessionStore {
 
     }
 
-    CachedRowSet readInserts(String syncId, String schema) {
+    CachedRowSet readInserts(String schema, String syncId) {
         return (CachedRowSet) binaryWriter().readFromBinaryFile(syncDataFile(schema, syncId));
     }
 
-    CachedRowSet readUpdates(String syncId, String schema) {
+    CachedRowSet readUpdates(String schema, String syncId) {
         return (CachedRowSet) binaryWriter().readFromBinaryFile(syncDataUpdatesFile(schema, syncId));
     }
 
-    CachedRowSet readDeletes(String syncId, String schema) {
+    CachedRowSet readDeletes(String schema, String syncId) {
         return (CachedRowSet) binaryWriter().readFromBinaryFile(syncDataDeletesFile(schema, syncId));
     }
 
