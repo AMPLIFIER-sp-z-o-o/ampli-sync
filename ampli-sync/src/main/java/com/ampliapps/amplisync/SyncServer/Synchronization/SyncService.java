@@ -857,15 +857,19 @@ public class SyncService {
                     statement.setString(parameterIndex, columnValue);
                     break;
             }
-        } catch (SQLException | ParseException e) {
-            String receivedDataStatementDesc = statement.toString();
-            Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
-            throw new InvalidReceivePayloadException(
-                    "Invalid value for column " + columnName + ": " + e.getMessage()
-            );
-        }
-
+        } catch (ParseException e) {
+        String receivedDataStatementDesc = statement.toString();
+        Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
+        throw new InvalidReceivePayloadException(
+                "Invalid value for column " + columnName + ": " + e.getMessage()
+        );
+    } catch (SQLException e) {
+        String receivedDataStatementDesc = statement.toString();
+        Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
     }
+
+
+}
 
     private boolean isEmptyStatementValue(String value) {
         return value == null || value.isEmpty();
