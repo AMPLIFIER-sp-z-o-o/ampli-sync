@@ -470,6 +470,36 @@ class SyncDeviceRegressionTest {
     }
 
     @Test
+    void shouldRejectReceiveInsertWithInvalidTimestampValue() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        String testRunId = newId();
+        String deviceId = testRunId + "-device-a";
+
+        try (SyncDevice deviceA = createDevice(client, testRunId, "device-a")) {
+            deviceA.prepopulate();
+
+            PayloadBuilder.PushPayload payload = new PayloadBuilder.PushPayload(
+                    List.of(new TableChanges(
+                            DemoCustomersFixture.TABLE,
+                            List.of(Map.of(
+                                    "id", newId(),
+                                    "name", "Invalid Timestamp ",
+                                    "email", "invalidtimestamp@example.com",
+                                    "city", "Warsaw",
+                                    "created_at", "invalidtimestamp"
+                            )),
+                            List.of()
+                    )),
+                    List.of()
+            );
+
+            int statusCode = client.sendChangesAndReturnStatus(deviceId, payload);
+
+            assertEquals(403, statusCode);
+        }
+    }
+
+    @Test
     void shouldReturnNotFoundForMissingCommitSyncSession() {
         SyncDevClient client = createClient(DEV_USER_ID);
 
