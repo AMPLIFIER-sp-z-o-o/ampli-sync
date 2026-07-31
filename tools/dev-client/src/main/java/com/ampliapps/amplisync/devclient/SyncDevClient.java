@@ -136,6 +136,11 @@ public class SyncDevClient {
         try {
             HttpResponse<String> response = httpClient.send(request,
                     HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 400) {
+                System.out.println("receive-changes failed with status " + response.statusCode());
+                System.out.println(response.body());
+            }
+
             return response.statusCode();
         } catch (IOException e) {
             throw new IllegalStateException("Send changes request failed", e);
@@ -143,6 +148,8 @@ public class SyncDevClient {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Send changes request was interrupted", e);
         }
+
+
     }
 
     public List<PullChanges> pullChangesForTable(String tableName, String deviceId) {
