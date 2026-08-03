@@ -508,6 +508,71 @@ class SyncDeviceRegressionTest {
         assertEquals(404, statusCode);
     }
 
+    @Test
+    void shouldRejectInvalidReceivePayloadBeforeApplyingDeletes() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        String testRunId = newId();
+
+        try (SyncDevice deviceA = createDevice(client, testRunId, "device-a");
+             SyncDevice deviceB = createDevice(client, testRunId, "device-b")) {
+            deviceA.prepopulate();
+            deviceB.prepopulate();
+
+            String customerId = newId();
+            Map<String, Object> customer = customer(
+                    customerId,
+                    "Validation Customer",
+                    "validation@example.com",
+                    "Warsaw"
+            );
+
+            deviceA.insertRow(DemoCustomersFixture.TABLE, customer);
+            deviceA.push();
+            deviceA.pullTable(DemoCustomersFixture.TABLE);
+            deviceB.pullTable(DemoCustomersFixture.TABLE);
+
+            String rowId = deviceA.findFirstValue(
+                    DemoCustomersFixture.TABLE,
+                    "rowid",
+                    "id",
+                    customerId
+            );
+
+            PayloadBuilder.PushPayload payload = new PayloadBuilder.PushPayload(
+                    List.of(new TableChanges(
+                            DemoCustomersFixture.TABLE,
+                            List.of(Map.of(
+                                    "id", newId(),
+                                    "name", "Invalid Date Customer",
+                                    "email", "invalid-date@example.com",
+                                    "city", "Warsaw",
+                                    "created_at", "invalidtimestamp"
+                            )),
+                            List.of()
+                    )),
+                    List.of(new DeletedRecord(DemoCustomersFixture.TABLE, rowId))
+            );
+
+            int statusCode = client.sendChangesAndReturnStatus(
+                    testRunId + "-device-a",
+                    payload
+            );
+
+            assertEquals(403, statusCode);
+
+            deviceB.pullTable(DemoCustomersFixture.TABLE);
+
+            SyncDeviceAssertions.assertRowValues(
+                    deviceB,
+                    DemoCustomersFixture.TABLE,
+                    "id",
+                    customerId,
+                    customer
+            );
+        }
+    }
+
+
     private static Map<String, Object> customer(String id, String name, String email, String city) {
         return Map.of(
                 "id", id,
