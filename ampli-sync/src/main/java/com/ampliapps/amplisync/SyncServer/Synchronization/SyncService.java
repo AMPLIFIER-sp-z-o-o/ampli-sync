@@ -372,34 +372,36 @@ public class SyncService {
 
     private Integer startNewReception(String subscriberId, ObjectNode data, String schema) {
         Integer syncId = syncSessionRepository.startSync(subscriberId, -1, schema);
-        writeReceivedData(syncId, data);
+        writeReceivedData(syncId, data, schema);
         return syncId;
     }
 
-    private void writeReceivedData(Integer syncId, ObjectNode data) {
-        ensureReceivedDataDirectoryExists();
+    private void writeReceivedData(Integer syncId, ObjectNode data, String schema) {
+        ensureReceivedDataDirectoryExists(schema);
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(receivedDataFile(syncId)))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(receivedDataFile(syncId, schema)))) {
             writer.write(data.toPrettyString());
         } catch (Exception e) {
             Logs.write(Logs.Level.ERROR, "StartNewReception() " + e.getMessage());
         }
     }
 
-    private void ensureReceivedDataDirectoryExists() {
-        File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData");
+    private void ensureReceivedDataDirectoryExists(String schema) {
+        File theDir = new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + schema);
         if (!theDir.exists()) {
             try {
-                theDir.mkdir();
+                theDir.mkdirs();
             } catch (SecurityException se) {
                 Logs.write(Logs.Level.ERROR, "StartNewReception()->Creating folder ReceivedData " + se.getMessage());
             }
         }
     }
 
-    private File receivedDataFile(Integer syncId) {
-        return new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + syncId + ".dat");
+
+    private File receivedDataFile(Integer syncId, String schema) {
+        return new File(SQLiteSyncConfig.WORKING_DIR + "ReceivedData/" + schema + "/" + syncId + ".dat");
     }
+
 
 
     private void commitChangesToDb(ObjectNode data, String schema, String subscriberId) {
