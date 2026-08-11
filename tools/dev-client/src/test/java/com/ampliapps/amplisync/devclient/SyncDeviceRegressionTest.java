@@ -487,6 +487,47 @@ class SyncDeviceRegressionTest {
         );
     }
 
+    @Test
+    void shouldNotReturnDeleteForRetriedInsert() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        String testRunId = newId();
+
+        try (SyncDevice deviceA = createDevice(client, testRunId, "device-a")) {
+            deviceA.prepopulate();
+
+            String customerId = newId();
+            Map<String, Object> customer = customer(
+                    customerId,
+                    "Retried Insert Customer",
+                    "retried-insert@example.com",
+                    "Warsaw"
+            );
+
+            PayloadBuilder.PushPayload payload = new PayloadBuilder.PushPayload(
+                    List.of(new TableChanges(
+                            DemoCustomersFixture.TABLE,
+                            List.of(customer),
+                            List.of()
+                    )),
+                    List.of()
+            );
+
+            client.sendChanges(deviceA.deviceId(), payload);
+            client.sendChanges(deviceA.deviceId(), payload);
+
+            List<Map<String, Object>> deletes = client.pullChangesForTable(
+                            DemoCustomersFixture.TABLE,
+                            deviceA.deviceId()
+                    )
+                    .stream()
+                    .filter(change -> change.records() != null)
+                    .flatMap(change -> change.records().deletes().stream())
+                    .toList();
+
+            assertTrue(deletes.isEmpty(), deletes.toString());
+        }
+    }
+
     private static String newId() {
         return UUID.randomUUID().toString();
     }
