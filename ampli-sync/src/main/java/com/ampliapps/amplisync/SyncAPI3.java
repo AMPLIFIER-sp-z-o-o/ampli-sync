@@ -52,6 +52,10 @@ public class SyncAPI3 {
             outStream.close();
             byte[] compressedBytes = baostream.toByteArray();
             return Response.ok(compressedBytes, MediaType.APPLICATION_OCTET_STREAM).build();
+        } catch (SyncSessionFileException e) {
+            return Response.serverError()
+                    .entity(e.getMessage())
+                    .build();
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
@@ -81,6 +85,10 @@ public class SyncAPI3 {
             return Response.ok().build();
         } catch (InvalidCommitSyncSessionException e) {
             return Response.status(Response.Status.NOT_FOUND)
+                    .entity(e.getMessage())
+                    .build();
+        } catch (SyncSessionFileException e) {
+            return Response.serverError()
                     .entity(e.getMessage())
                     .build();
         }
@@ -121,11 +129,17 @@ public class SyncAPI3 {
             @HeaderParam("Dev-User-Id") String devUserId) {
 
         String subscriberUUID = getSubscriberUUID(token, devUserId);
-        SQLitePrepopulate sqLitePrepopulate = new SQLitePrepopulate();
-        File file = new File(sqLitePrepopulate.PrepopulateDatabase(subscriberUUID, deviceUniqueId));
-        return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
-                .header("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"")
-                .build();
+        try {
+            SQLitePrepopulate sqLitePrepopulate = new SQLitePrepopulate();
+            File file = new File(sqLitePrepopulate.PrepopulateDatabase(subscriberUUID, deviceUniqueId));
+            return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
+                    .header("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"")
+                    .build();
+        } catch (SyncSessionFileException e) {
+            return Response.serverError()
+                    .entity(e.getMessage())
+                    .build();
+        }
     }
 
     /// Helpers
