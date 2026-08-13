@@ -405,6 +405,8 @@ public class SyncService {
     private void commitChangesToDb(ObjectNode data, String schema, String subscriberId) {
         Connection cn = Database.getInstance().GetDBConnection();
         try {
+            validateReceivePayload(cn, data, schema);
+
             Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting deleted records.");
             JsonNode deletes = data.path("deletes");
             pushDeletedRecords(deletes, schema);
@@ -440,6 +442,60 @@ public class SyncService {
                 Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Started collecting updates.");
                 pushUpdateRecords(updates, tableName, schema);
                 Logs.write(Logs.Level.DEBUG, "CommitChangesToDb(). Finished collecting updates.");
+            }
+        }
+    }
+
+    private void validateReceivePayload(Connection cn, ObjectNode data, String schema) throws SQLException {
+        validateDeletedRecords(cn, data.path("deletes"), schema);
+
+        JsonNode changes = data.path("changes");
+        if (changes.isArray()) {
+            for (JsonNode change : changes) {
+                String tableName = change.path("table").asText();
+                String syncedTableName = requireSyncedTable(cn, schema, tableName);
+
+                validateInsertRecords(cn, change.path("inserts"), syncedTableName, schema);
+                validateUpdateRecords(cn, change.path("updates"), syncedTableName, schema);
+            }
+        }
+    }
+
+    private void validateDeletedRecords(Connection cn, JsonNode deletes, String schema) throws SQLException {
+        if (deletes.isArray()) {
+            for (JsonNode node : deletes) {
+                String tableName = node.path("table").asText();
+                requireSyncedTable(cn, schema, tableName);
+            }
+        }
+    }
+
+    private void validateInsertRecords(Connection cn, JsonNode inserts, String tableName, String schema) throws SQLException {
+        SchemaGenerator schemaGen = new SchemaGenerator();
+        String insertSQLQuery = schemaGen.CreateInsertStatementWithParams(tableName, schema);
+        List<DatabaseTableParameter> paramList = schemaGen.GetStatmentParams(tableName, true, schema, 1);
+
+        try (PreparedStatement statement = cn.prepareStatement(insertSQLQuery)) {
+            setDefaultsForParams(statement, tableName, paramList);
+
+            if (inserts.isArray()) {
+                for (JsonNode node : inserts) {
+                    bindJsonFieldsToStatement(node, statement, paramList, true);
+                }
+            }
+        }
+    }
+
+    private void validateUpdateRecords(Connection cn, JsonNode updates, String tableName, String schema) throws SQLException {
+        SchemaGenerator schemaGen = new SchemaGenerator();
+        String updateSQLQuery = schemaGen.CreateUpdateStatmentWithParams(tableName, schema);
+        List<DatabaseTableParameter> paramList = schemaGen.GetStatmentParams(tableName, false, schema, 2);
+
+        try (PreparedStatement statement = cn.prepareStatement(updateSQLQuery)) {
+            if (updates.isArray()) {
+                for (JsonNode node : updates) {
+                    bindJsonFieldsToStatement(node, statement, paramList, false);
+                }
             }
         }
     }
@@ -595,8 +651,7 @@ public class SyncService {
         deleteStatement.executeUpdate();
     }
 
-    private String requireSyncedTable(Connection cn, String schema, String
-            tableName) throws SQLException {
+    private String requireSyncedTable(Connection cn, String schema, String tableName) throws SQLException {
         PreparedStatement statement =
                 cn.prepareStatement(QUERIES.DO_SYNC_GET_TABLE(schema));
         statement.setString(1, tableName);
@@ -857,11 +912,19 @@ public class SyncService {
                     statement.setString(parameterIndex, columnValue);
                     break;
             }
-        } catch (SQLException | ParseException e) {
-            String receivedDataStatementDesc = statement.toString();
-            Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
-        }
+        } catch (ParseException e) {
+        String receivedDataStatementDesc = statement.toString();
+        Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
+        throw new InvalidReceivePayloadException(
+                "Invalid value for column " + columnName + ": " + e.getMessage()
+        );
+    } catch (SQLException e) {
+        String receivedDataStatementDesc = statement.toString();
+        Logs.write(Logs.Level.INFO, "parseStatementParameter()->" + columnName + ", [" + receivedDataStatementDesc + "] ," + e.getMessage());
     }
+
+
+}
 
     private boolean isEmptyStatementValue(String value) {
         return value == null || value.isEmpty();

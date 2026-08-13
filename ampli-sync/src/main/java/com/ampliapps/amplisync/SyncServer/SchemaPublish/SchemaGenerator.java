@@ -209,6 +209,11 @@ public class SchemaGenerator {
             case "REAL":
                 defaultValue = "DEFAULT (" + column.DefaultValue + ")";
                 break;
+            case "DATE":
+            case "DATETIME":
+                defaultValue = "DEFAULT (" + column.DefaultValue + ")";
+                break;
+
         }
         return defaultValue;
     }

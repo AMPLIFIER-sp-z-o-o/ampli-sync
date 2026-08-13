@@ -75,6 +75,8 @@ public class Helpers {
                 SQLiteType = "TEXT";
                 break;
             case "timestamp":
+            case "timestamp without time zone":
+            case "timestamp with time zone":
             case "datetime2":
             case "datetime":
                 SQLiteType = "DATETIME";

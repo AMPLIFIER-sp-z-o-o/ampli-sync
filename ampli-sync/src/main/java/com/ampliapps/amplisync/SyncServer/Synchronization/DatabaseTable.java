@@ -58,6 +58,10 @@ public class DatabaseTable {
                 if(column.DefaultValue != null && column.DefaultValue.equalsIgnoreCase("CURRENT_DATE"))
                     column.DefaultValue = "datetime('now', 'localtime')";
 
+                if (column.DefaultValue != null && column.DefaultValue.equalsIgnoreCase("CURRENT_TIMESTAMP"))
+                    column.DefaultValue = "datetime('now', 'localtime')";
+
+
                 if(column.DefaultValue != null && column.DefaultValue.equalsIgnoreCase("uuid_generate_v4()"))
                     column.DefaultValue = "";
 
