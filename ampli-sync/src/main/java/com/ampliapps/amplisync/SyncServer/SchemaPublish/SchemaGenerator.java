@@ -288,7 +288,7 @@ public class SchemaGenerator {
         tmp = insert.toString().substring(0, insert.toString().length() - 1);
         insert = new StringBuilder();
         insert.append(tmp);
-        insert.append(";");
+        insert.append(" returning rowid;");
         return insert.toString().toLowerCase();
     }
 

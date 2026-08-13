@@ -567,15 +567,23 @@ public class SyncService {
             DatabaseTableParameter param =
                     getParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
             insertStatement.setString(param.ParameterOrder, rowIdValue);
-            insertStatement.execute();
 
-            mergeContent.setInt(1, Integer.parseInt(subscriber));
-            mergeContent.setString(2, rowIdValue);
-            mergeContent.setTimestamp(3, new java.sql.Timestamp(new Date().getTime()));
-            mergeContent.setInt(4, 1);
-            mergeContent.setInt(5, 0);
-            mergeContent.setBoolean(6, true);
-            mergeContent.execute();
+            try (ResultSet result = insertStatement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SQLException("Receive insert did not return rowid");
+                }
+
+                String persistedRowId = result.getString("rowid");
+
+                mergeContent.setInt(1, Integer.parseInt(subscriber));
+                mergeContent.setString(2, persistedRowId);
+                mergeContent.setTimestamp(3, new java.sql.Timestamp(new Date().getTime()));
+                mergeContent.setInt(4, 1);
+                mergeContent.setInt(5, 0);
+                mergeContent.setBoolean(6, true);
+                mergeContent.execute();
+            }
+
         } catch (SQLException e) {
             Logs.write(Logs.Level.ERROR, "PushInsertRecords()->Execute insert: " +
                     e.getMessage() + "; " + insertStatement);
