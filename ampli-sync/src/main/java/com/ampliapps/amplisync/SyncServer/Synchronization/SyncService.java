@@ -509,7 +509,6 @@ public class SyncService {
             DatabaseTableParameter param =
                     getParamForDbField(SQLQueries.GET_ROWID_COLUMN_NAME(), paramList);
             insertStatement.setString(param.ParameterOrder, rowIdValue);
-            insertStatement.execute();
 
             try (ResultSet result = insertStatement.executeQuery()) {
                 if (!result.next()) {
