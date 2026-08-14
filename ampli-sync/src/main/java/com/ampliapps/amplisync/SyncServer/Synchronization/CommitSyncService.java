@@ -47,8 +47,5 @@ final class CommitSyncService {
         );
 
         syncSessionRepository.finishSync(syncId, schema);
-
     }
-
-
 }

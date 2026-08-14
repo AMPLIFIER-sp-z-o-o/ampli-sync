@@ -80,5 +80,4 @@ final class SyncSessionRepository {
 
         throw new InvalidCommitSyncSessionException("Sync session was not found: " + syncId);
     }
-
 }
