@@ -58,4 +58,27 @@ final class SyncSessionRepository {
             JDBCCloser.close(cn);
         }
     }
+
+    CommitSyncSession readCommitSyncSession(String syncId, String schema) {
+        Connection cn = Database.getInstance().GetDBConnection();
+        try {
+            PreparedStatement query = cn.prepareStatement(QUERIES.COMMIT_SYNC(schema));
+            query.setInt(1, Integer.parseInt(syncId));
+            ResultSet reader = query.executeQuery();
+
+            if (reader.next()) {
+                return new CommitSyncSession(
+                        reader.getString("TableName"),
+                        reader.getInt("subscriberId")
+                );
+            }
+        } catch (SQLException e) {
+            Logs.write(Logs.Level.ERROR, "CommitSync() " + e.getMessage());
+        } finally {
+            JDBCCloser.close(cn);
+        }
+
+        throw new InvalidCommitSyncSessionException("Sync session was not found: " + syncId);
+    }
+
 }
