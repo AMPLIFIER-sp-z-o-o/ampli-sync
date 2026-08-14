@@ -3,9 +3,19 @@ package com.ampliapps.amplisync.SyncServer.Synchronization;
 import javax.sql.rowset.CachedRowSet;
 
 final class CommitSyncService {
-    private final SyncSessionStore syncSessionStore = new SyncSessionStore();
-    private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
-    private final MergeContentRepository mergeContentRepository = new MergeContentRepository();
+    private final SyncSessionStore syncSessionStore;
+    private final SyncSessionRepository syncSessionRepository;
+    private final MergeContentRepository mergeContentRepository;
+
+    CommitSyncService(
+            SyncSessionStore syncSessionStore,
+            SyncSessionRepository syncSessionRepository,
+            MergeContentRepository mergeContentRepository
+    ) {
+        this.syncSessionStore = syncSessionStore;
+        this.syncSessionRepository = syncSessionRepository;
+        this.mergeContentRepository = mergeContentRepository;
+    }
 
     void commit(String syncId, String schema) {
         CachedRowSet cachedDataInserts = syncSessionStore.readInserts(schema, syncId);

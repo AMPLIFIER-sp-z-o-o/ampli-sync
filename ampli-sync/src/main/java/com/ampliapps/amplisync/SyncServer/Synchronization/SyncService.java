@@ -33,11 +33,18 @@ public class SyncService {
     public Integer syncIdForTestPurpose = -1;
     private final SQLQueries QUERIES = new SQLQueries();
     private final PullQueryBuilder pullQueryBuilder = new PullQueryBuilder();
-    private final SyncSessionStore syncSessionStore = new SyncSessionStore();
-    private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
     private final SQLiteClientQueryBuilder sqLiteClientQueryBuilder = new SQLiteClientQueryBuilder();
     private final PullChangeEnumerator pullChangeEnumerator = new PullChangeEnumerator();
-    private final CommitSyncService commitSyncService = new CommitSyncService();
+
+    private final SyncSessionStore syncSessionStore = new SyncSessionStore();
+    private final MergeContentRepository mergeContentRepository = new MergeContentRepository();
+    private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
+
+    private final CommitSyncService commitSyncService = new CommitSyncService(
+            syncSessionStore,
+            syncSessionRepository,
+            mergeContentRepository
+    );
 
     public SyncService() {
         SQLiteSyncConfig.Load();
