@@ -1,9 +1,8 @@
-package com.ampliapps.amplisync.SyncServer.Synchronization;;
+package com.ampliapps.amplisync.SyncServer.Synchronization;
 
 import javax.sql.rowset.CachedRowSet;
 
 final class CommitSyncService {
-    private final SQLQueries QUERIES = new SQLQueries();
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
     private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
     private final MergeContentRepository mergeContentRepository = new MergeContentRepository();
