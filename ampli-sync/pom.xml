@@ -15,7 +15,7 @@
         <jersey.version>3.1.11</jersey.version>
         <jackson.version>2.20.1</jackson.version>
         <junit.version>5.13.1</junit.version>
-        <log4j.version>2.25.4</log4j.version>
+        <log4j.version>2.25.5</log4j.version>
     </properties>
 
     <dependencyManagement>
