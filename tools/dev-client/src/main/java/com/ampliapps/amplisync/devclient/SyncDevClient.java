@@ -184,6 +184,26 @@ public class SyncDevClient {
         }
     }
 
+    public void initializeChangeNotificationPoc() {
+        HttpRequest request = requestBuilder(syncBaseUrl + "change-notification-poc/initialize")
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Initialize change notification PoC failed with status: "
+                        + response.statusCode());
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Initialize change notification PoC request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Initialize change notification PoC request was interrupted", e);
+        }
+    }
+
     public void commitSync(int syncId) {
         if (syncId <= 0) {
             return;

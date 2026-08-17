@@ -7,6 +7,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.UUID;
 import java.nio.file.Path;
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
@@ -573,6 +574,46 @@ class SyncDeviceRegressionTest {
     }
 
 
+    @Test
+    void shouldWritePocChangeLogForPocTables() {
+        SyncDevClient client = createClient(DEV_USER_ID);
+        client.initializeChangeNotificationPoc();
+
+        String customerId = newId();
+        String orderId = newId();
+        String itemId = newId();
+
+        execPostgres("""
+                insert into tenant_test.poc_customers (id, name, assigned_user_uuid)
+                values ('%s', 'POC Customer', '1');
+
+                insert into tenant_test.poc_orders (id, customer_id, order_number, total_amount)
+                values ('%s', '%s', 'POC-1', 100);
+
+                insert into tenant_test.poc_order_items (id, order_id, product_name, quantity)
+                values ('%s', '%s', 'POC Product', 2);
+
+                update tenant_test.poc_orders
+                set total_amount = 120
+                where id = '%s';
+
+                delete from tenant_test.poc_order_items
+                where id = '%s';
+                """.formatted(customerId, orderId, customerId, itemId, orderId, orderId, itemId));
+
+        String changes = execPostgres("""
+                select table_name || ':' || operation
+                from tenant_test.poc_change_log
+                order by seq;
+                """);
+
+        assertTrue(changes.contains("poc_customers:insert"), changes);
+        assertTrue(changes.contains("poc_orders:insert"), changes);
+        assertTrue(changes.contains("poc_order_items:insert"), changes);
+        assertTrue(changes.contains("poc_orders:update"), changes);
+        assertTrue(changes.contains("poc_order_items:delete"), changes);
+    }
+
     private static Map<String, Object> customer(String id, String name, String email, String city) {
         return Map.of(
                 "id", id,
@@ -632,6 +673,30 @@ class SyncDeviceRegressionTest {
         Integer port = ENVIRONMENT.getServicePort("amplisync", 8080);
 
         return new SyncDevClient("http://" + host + ":" + port + "/ampli-sync/", devUserId);
+    }
+
+    private static String execPostgres(String sql) {
+        try {
+            org.testcontainers.containers.Container.ExecResult result = ENVIRONMENT
+                    .getContainerByServiceName("postgres-1")
+                    .orElseThrow()
+                    .execInContainer(
+                            "psql",
+                            "-U", "postgres",
+                            "-d", "ampli_sync_test",
+                            "-t",
+                            "-A",
+                            "-c", sql
+                    );
+
+            assertEquals(0, result.getExitCode(), result.getStderr());
+            return result.getStdout().trim();
+        } catch (IOException e) {
+            throw new IllegalStateException("Postgres command failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Postgres command was interrupted", e);
+        }
     }
 
     private static SyncDevice createDevice(SyncDevClient client, String testRunId, String deviceName) {
