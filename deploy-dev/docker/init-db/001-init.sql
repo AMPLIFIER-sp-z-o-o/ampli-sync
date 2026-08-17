@@ -99,3 +99,58 @@ values
     ('a85726ea-90db-4fe7-9b85-00bbd2779e81', '586fb265-f426-49eb-8552-256f54de61ef', '77c8a552-4461-486d-a6dc-3e47ae00c1c5', 1, 189.00),
     ('fbd9601d-1b5f-4abf-9926-a6b02ad8ea5a', '586fb265-f426-49eb-8552-256f54de61ef', 'b3da1d9d-0933-47fd-b172-4277ccde1a98', 1, 129.00)
     on conflict (id) do nothing;
+
+create table if not exists tenant_test.poc_customers (
+                                                         id uuid primary key default uuid_generate_v4(),
+    name text not null,
+    assigned_user_uuid varchar(100) not null,
+    rowid char(36) not null default uuid_generate_v4()
+    );
+
+create table if not exists tenant_test.poc_orders (
+                                                      id uuid primary key default uuid_generate_v4(),
+    customer_id uuid not null references tenant_test.poc_customers(id),
+    order_number text not null,
+    total_amount numeric not null,
+    rowid char(36) not null default uuid_generate_v4()
+    );
+
+create table if not exists tenant_test.poc_order_items (
+                                                           id uuid primary key default uuid_generate_v4(),
+    order_id uuid not null references tenant_test.poc_orders(id),
+    product_name text not null,
+    quantity numeric not null,
+    rowid char(36) not null default uuid_generate_v4()
+    );
+
+create or replace view tenant_test.vw_poc_customers_sync as
+select
+    c.rowid,
+    c.id,
+    c.name,
+    c.assigned_user_uuid as uniquename
+from tenant_test.poc_customers c;
+
+create or replace view tenant_test.vw_poc_orders_sync as
+select
+    o.rowid,
+    o.id,
+    o.customer_id,
+    o.order_number,
+    o.total_amount,
+    c.assigned_user_uuid as uniquename
+from tenant_test.poc_orders o
+         join tenant_test.poc_customers c on c.id = o.customer_id;
+
+create or replace view tenant_test.vw_poc_order_items_sync as
+select
+    i.rowid,
+    i.id,
+    i.order_id,
+    i.product_name,
+    i.quantity,
+    c.assigned_user_uuid as uniquename
+from tenant_test.poc_order_items i
+         join tenant_test.poc_orders o on o.id = i.order_id
+         join tenant_test.poc_customers c on c.id = o.customer_id;
+
