@@ -39,6 +39,8 @@ public class SyncService {
     private final SyncSessionStore syncSessionStore = new SyncSessionStore();
     private final MergeContentRepository mergeContentRepository = new MergeContentRepository();
     private final SyncSessionRepository syncSessionRepository = new SyncSessionRepository();
+    private final ChangeNotificationPocInitializer changeNotificationPocInitializer =
+            new ChangeNotificationPocInitializer();
 
     private final CommitSyncService commitSyncService = new CommitSyncService(
             syncSessionStore,
@@ -48,6 +50,10 @@ public class SyncService {
 
     public SyncService() {
         SQLiteSyncConfig.Load();
+    }
+
+    public void InitializeChangeNotificationPoc(String schema) {
+        changeNotificationPocInitializer.initialize(schema);
     }
 
     public String getChangesForTable(String subscriberUUID, String schema, String tableName, String deviceUUID) {

@@ -120,6 +120,21 @@ public class SyncAPI3 {
         }
     }
 
+    @POST
+    @Path("/change-notification-poc/initialize")
+    public Response InitializeChangeNotificationPoc(
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String token,
+            @HeaderParam("Dev-User-Id") String devUserId) {
+
+        String subscriberUUID = getSubscriberUUID(token, devUserId);
+        String schema = UserSchemaGuavaCacheUtil.getUserSchemaUsingGuava(subscriberUUID);
+
+        SyncService sync = new SyncService();
+        sync.InitializeChangeNotificationPoc(schema);
+
+        return Response.ok().build();
+    }
+
     @GET
     @Path("/prepopulate-db/{deviceUniqueId}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
